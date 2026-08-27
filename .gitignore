@@ -1,0 +1,67 @@
+# Dependencias
+node_modules/
+.pnp
+.pnp.js
+
+# Builds
+dist/
+build/
+out/
+.next/
+.expo/
+.expo-shared/
+web-build/
+
+# Expo — generados por `expo prebuild`.
+# Si algún día pasás a workflow "bare" y editás código nativo a mano,
+# hay que sacar estas dos líneas y versionarlos.
+/android/
+/ios/
+
+# Variables de entorno — NUNCA versionar.
+# Acá viven las claves de Supabase y Cloudflare.
+.env
+.env.local
+.env.*.local
+.env.development
+.env.production
+
+# Credenciales de firma de apps
+*.keystore
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+google-services.json
+GoogleService-Info.plist
+
+# Supabase (local)
+supabase/.temp/
+supabase/.branches/
+
+# Tests
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Editores
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# Configuración local de Claude Code (permisos de esta máquina)
+.claude/settings.local.json
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+desktop.ini
+*~

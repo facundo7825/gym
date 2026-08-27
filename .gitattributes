@@ -1,0 +1,20 @@
+# Normaliza los finales de línea a LF dentro del repositorio.
+# Evita que un archivo aparezca como "cambiado por completo" solo por
+# haberse editado en Windows y no en Mac/Linux (o en CI).
+* text=auto eol=lf
+
+# Binarios: no tocar.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.mp4 binary
+*.mov binary
+*.pdf binary
+*.ttf binary
+*.otf binary
+*.woff binary
+*.woff2 binary
+*.keystore binary
+*.jks binary
