@@ -1035,11 +1035,18 @@ export default async function LayoutPanel({
   if (!user) redirect('/login')
 
   // RLS ya limita esta consulta a las membresías de quien pregunta.
+  //
+  // limit(1) y NO single(): una persona puede tener membresía en más de un
+  // gimnasio (un entrenador que trabaja en dos), y single() tira error si
+  // vuelve más de una fila. Por ahora se usa la más antigua; el selector de
+  // gimnasio llega en una etapa posterior.
   const { data: membresia } = await supabase
     .from('memberships')
     .select('rol, gyms(nombre), profiles(nombre, apellido)')
     .eq('user_id', user.id)
-    .single()
+    .order('created_at')
+    .limit(1)
+    .maybeSingle()
 
   if (!membresia) {
     return (
@@ -1270,10 +1277,14 @@ export default function Hoy() {
   const [rol, setRol] = useState<string | null>(null)
 
   useEffect(() => {
+    // limit(1) y no single(): ver la nota del layout del panel. Una persona
+    // puede pertenecer a más de un gimnasio.
     supabase
       .from('memberships')
       .select('rol, gyms(nombre)')
-      .single()
+      .order('created_at')
+      .limit(1)
+      .maybeSingle()
       .then(({ data }) => {
         setGym(data?.gyms?.nombre ?? null)
         setRol(data?.rol ?? null)
@@ -1657,8 +1668,10 @@ export async function crearMaquina(datos: FormData): Promise<{ error?: string }>
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Sesión vencida' }
 
+  // limit(1) y no single(): una persona puede pertenecer a varios gimnasios.
   const { data: membresia } = await supabase
-    .from('memberships').select('gym_id').eq('user_id', user.id).single()
+    .from('memberships').select('gym_id').eq('user_id', user.id)
+    .order('created_at').limit(1).maybeSingle()
   if (!membresia) return { error: 'No estás asociado a ningún gimnasio' }
 
   // Si el rol no alcanza, RLS rechaza el insert. No hace falta chequearlo
@@ -1863,8 +1876,10 @@ export async function crearEjercicio(datos: FormData): Promise<{ error?: string 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Sesión vencida' }
 
+  // limit(1) y no single(): una persona puede pertenecer a varios gimnasios.
   const { data: membresia } = await supabase
-    .from('memberships').select('id, gym_id').eq('user_id', user.id).single()
+    .from('memberships').select('id, gym_id').eq('user_id', user.id)
+    .order('created_at').limit(1).maybeSingle()
   if (!membresia) return { error: 'No estás asociado a ningún gimnasio' }
 
   const { error } = await supabase.from('ejercicios').insert({
@@ -2115,8 +2130,10 @@ Deno.serve(async (peticion) => {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return new Response('Sesión inválida', { status: 401 })
 
+  // limit(1) y no single(): una persona puede pertenecer a varios gimnasios.
   const { data: membresia } = await supabase
-    .from('memberships').select('id, gym_id, rol').eq('user_id', user.id).single()
+    .from('memberships').select('id, gym_id, rol').eq('user_id', user.id)
+    .order('created_at').limit(1).maybeSingle()
 
   if (!membresia || !['entrenador', 'admin'].includes(membresia.rol)) {
     return new Response('No tenés permiso para subir videos', { status: 403 })
