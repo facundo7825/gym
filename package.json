@@ -1,0 +1,21 @@
+{
+  "name": "gym",
+  "private": true,
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "db:start": "supabase start",
+    "db:stop": "supabase stop",
+    "db:reset": "supabase db reset",
+    "db:estado": "supabase status",
+    "db:tipos": "supabase gen types typescript --local > packages/core/src/tipos-db.ts",
+    "test:rls": "vitest run --config vitest.config.ts",
+    "test:core": "npm run test --workspace @gym/core"
+  },
+  "devDependencies": {
+    "supabase": "^2.20.0",
+    "vitest": "^3.0.0",
+    "dotenv": "^16.4.0",
+    "@supabase/supabase-js": "^2.48.0",
+    "typescript": "^5.7.0"
+  }
+}
