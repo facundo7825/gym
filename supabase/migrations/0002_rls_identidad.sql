@@ -89,3 +89,13 @@ create policy memberships_crear on memberships for insert
 
 create policy memberships_editar on memberships for update
   using (mi_rol(gym_id) = 'admin' or soy_superadmin());
+
+-- RLS decide QUÉ FILAS se pueden tocar, nunca qué columnas. `es_superadmin`
+-- vive en esta tabla, así que sin esto cualquiera se promueve solo editando
+-- su propio perfil y se abre la rama `or soy_superadmin()` de casi todas las
+-- políticas. La restricción por columna se hace con grants.
+-- Se revoca el grant de tabla primero: Postgres SUMA privilegios, así que
+-- revocar solo la columna no descuenta un grant de tabla preexistente.
+revoke update on public.profiles from anon, authenticated;
+grant update (nombre, apellido, telefono, avatar_url, fecha_nacimiento)
+  on public.profiles to authenticated;

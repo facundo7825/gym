@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from 'vitest'
-import { crearEscenario, type Escenario } from './ayudas'
+import { admin, crearEscenario, type Escenario } from './ayudas'
 
 describe('aislamiento de identidad entre gimnasios', () => {
   let e: Escenario
@@ -65,5 +65,50 @@ describe('aislamiento de identidad entre gimnasios', () => {
       .eq('gym_id', e.gymA)
       .select()
     expect(data).toEqual([])
+  })
+
+  it('un socio NO puede ascenderse a superadmin', async () => {
+    await e.comoSocioA.from('profiles').update({ es_superadmin: true }).eq('id', e.socioAId)
+    // Se verifica con el cliente admin, no con el del socio: un `[]` en la
+    // respuesta del update podría venir de RLS o de que la fila simplemente
+    // no se haya devuelto, y el test pasaría por el motivo equivocado.
+    const { data } = await admin
+      .from('profiles')
+      .select('es_superadmin')
+      .eq('id', e.socioAId)
+      .single()
+    expect(data?.es_superadmin).toBe(false)
+  })
+
+  it('un socio de A NO puede renombrar el gimnasio A', async () => {
+    const { data } = await e.comoSocioA
+      .from('gyms')
+      .update({ nombre: 'Hackeado' })
+      .eq('id', e.gymA)
+      .select()
+    expect(data).toEqual([])
+  })
+
+  it('el admin de A NO puede renombrar el gimnasio B', async () => {
+    const { data } = await e.comoAdminA
+      .from('gyms')
+      .update({ nombre: 'Hackeado' })
+      .eq('id', e.gymB)
+      .select()
+    expect(data).toEqual([])
+  })
+
+  it('un socio NO puede editar el perfil de otro socio de otro gimnasio', async () => {
+    const { data } = await e.comoSocioB
+      .from('profiles')
+      .update({ nombre: 'Hackeado' })
+      .eq('id', e.socioAId)
+      .select()
+    expect(data).toEqual([])
+  })
+
+  it('el superadmin ve los gimnasios de A y de B', async () => {
+    const { data } = await e.comoSuperadmin.from('gyms').select('id')
+    expect(data?.map((g) => g.id).sort()).toEqual([e.gymA, e.gymB].sort())
   })
 })
