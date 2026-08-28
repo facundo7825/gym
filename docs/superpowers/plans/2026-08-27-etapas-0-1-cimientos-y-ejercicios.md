@@ -43,6 +43,7 @@ gym/
 ├── vitest.config.ts                   config de los tests de RLS
 ├── .env.example                       nombres de variables, sin valores
 ├── tests/
+│   ├── setup.ts                       carga .env.test antes de cada worker
 │   └── rls/
 │       ├── ayudas.ts                  crea gimnasios y usuarios de prueba
 │       ├── identidad.test.ts          aislamiento de gyms/profiles/memberships
@@ -623,15 +624,31 @@ export default defineConfig({
     // paralelo se pisarían los datos entre sí.
     fileParallelism: false,
     testTimeout: 30_000,
-    setupFiles: ['dotenv/config'],
+    setupFiles: ['./tests/setup.ts'],
   },
 })
 ```
 
+`tests/setup.ts`:
+```ts
+import { config } from 'dotenv'
+
+// Apunta explícitamente a .env.test. El atajo `dotenv/config` NO sirve acá:
+// carga `.env`, que es el archivo de las apps y no tiene la SERVICE_ROLE_KEY
+// que estos tests necesitan para preparar datos salteando RLS.
+config({ path: '.env.test' })
+```
+
 Generar el archivo de entorno para los tests:
 ```bash
-npx supabase status -o env > .env.test
+npx supabase status -o env 2>/dev/null > .env.test
 ```
+
+Verificá que quedó bien antes de seguir:
+```bash
+grep -c -E '^(API_URL|ANON_KEY|SERVICE_ROLE_KEY)=' .env.test
+```
+Esperado: `3`. Si da menos, los tests van a fallar por falta de credenciales y no por RLS, que es la peor forma de perder una hora.
 
 Agregar `.env.test` a `.gitignore`:
 ```bash
