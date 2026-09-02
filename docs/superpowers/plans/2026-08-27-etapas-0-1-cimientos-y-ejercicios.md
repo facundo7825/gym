@@ -591,6 +591,24 @@ create policy profiles_editar_el_mio on profiles for update
   using (id = (select auth.uid()))
   with check (id = (select auth.uid()));
 
+-- RLS decide QUÉ FILAS se pueden tocar, nunca qué columnas. Y `es_superadmin`
+-- vive en esta tabla. Sin lo que sigue, cualquier usuario autenticado se
+-- promueve solo editando su propio perfil —pasa el `using` porque la fila es
+-- suya, pasa el `with check` porque el id no cambia— y con eso se le abre la
+-- rama `or soy_superadmin()` de casi todas las políticas: lee y escribe todos
+-- los gimnasios. La restricción por columna se hace con grants, no con RLS.
+--
+-- Se revoca el grant de tabla ANTES de otorgar por columna: Postgres SUMA
+-- privilegios, así que revocar solo la columna no descuenta un grant de tabla
+-- preexistente y no serviría de nada.
+revoke update on public.profiles from anon, authenticated;
+grant update (nombre, apellido, telefono, avatar_url, fecha_nacimiento)
+  on public.profiles to authenticated;
+-- `service_role` conserva su grant de tabla, así que promover a un superadmin
+-- de verdad desde el backend sigue siendo posible. Un trigger no serviría:
+-- los triggers tampoco los saltea `service_role`, y bloquearía también esa
+-- operación legítima.
+
 -- memberships: las de mi gimnasio. Solo un admin da de alta.
 create policy memberships_leer on memberships for select
   using (gym_id in (select mis_gyms()) or soy_superadmin());

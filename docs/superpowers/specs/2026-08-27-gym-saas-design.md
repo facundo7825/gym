@@ -88,6 +88,24 @@ La regla vive en PostgreSQL. Si una consulta de la app olvida un filtro, o si al
 
 **Contrapartida:** las políticas hay que escribirlas con cuidado y probarlas. Los tests de aislamiento son parte obligatoria de la etapa 0, no un extra.
 
+### Lo que RLS no puede hacer
+
+**RLS decide qué filas se pueden tocar. Nunca decide qué columnas.**
+
+Es la limitación que más fácil se olvida, y tiene una consecuencia concreta acá: `profiles.es_superadmin` es una columna de la misma fila que su dueño tiene permiso de editar. Una política que diga "podés modificar tu propio perfil" autoriza, sin quererlo, "podés marcarte como superadmin" — y desde ahí se abre la rama de superadmin de casi todas las demás políticas.
+
+La restricción por columna se hace con *grants*, no con políticas:
+
+```sql
+revoke update on public.profiles from anon, authenticated;
+grant update (nombre, apellido, telefono, avatar_url, fecha_nacimiento)
+  on public.profiles to authenticated;
+```
+
+El `revoke` va primero y es obligatorio: PostgreSQL **suma** privilegios, así que revocar una columna no descuenta un permiso otorgado a nivel de tabla.
+
+Regla general que se sigue de esto: **cada vez que se agregue una columna que otorgue poder** —un rol, un estado de cuenta, un límite— hay que preguntarse quién tiene `update` sobre su tabla, y si la respuesta incluye al propio usuario, restringir por columna. Vale para `memberships.rol` y para cualquier columna equivalente que aparezca más adelante.
+
 ---
 
 ## 5. Modelo de datos
@@ -409,6 +427,7 @@ Descartado a propósito, con el motivo:
 | Riesgo | Mitigación |
 |---|---|
 | Fuga de datos entre gimnasios | RLS en la base + tests de aislamiento obligatorios en cada cambio |
+| Escalada de privilegios por una columna que RLS no puede proteger | Grants por columna sobre toda columna que otorgue poder, y un test por cada política de escritura. Una política sin test es una política que nadie sabe si funciona |
 | Filtración de videos de un gimnasio | URLs firmadas de vida corta, nunca URLs públicas |
 | Sin señal dentro del gimnasio | Escritura local primero y cola de sincronización |
 | Un gimnasio nuevo arranca con la app vacía | Catálogo global de ejercicios precargado |

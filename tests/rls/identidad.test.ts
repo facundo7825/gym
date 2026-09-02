@@ -109,6 +109,12 @@ describe('aislamiento de identidad entre gimnasios', () => {
 
   it('el superadmin ve los gimnasios de A y de B', async () => {
     const { data } = await e.comoSuperadmin.from('gyms').select('id')
-    expect(data?.map((g) => g.id).sort()).toEqual([e.gymA, e.gymB].sort())
+    // Contención, no igualdad exacta: otros archivos de test comparten esta
+    // misma base (fileParallelism: false, sin limpieza entre archivos) y
+    // dejan sus propios gimnasios. soy_superadmin() los trae a todos, así
+    // que una igualdad exacta se rompería por ruido ajeno a esta política.
+    expect(data?.map((g) => g.id)).toEqual(
+      expect.arrayContaining([e.gymA, e.gymB]),
+    )
   })
 })
