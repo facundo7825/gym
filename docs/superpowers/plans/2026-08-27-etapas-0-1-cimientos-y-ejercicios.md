@@ -1194,35 +1194,68 @@ git commit -m "Agregar autenticación y layout base del panel web"
 ### Tarea 6: Autenticación en la app móvil
 
 **Archivos:**
-- Crear: `apps/movil/` (Expo), `apps/movil/lib/supabase.ts`, `apps/movil/app/_layout.tsx`, `apps/movil/app/login.tsx`, `apps/movil/app/(tabs)/_layout.tsx`, `apps/movil/app/(tabs)/index.tsx`
+- Crear: `apps/movil/` (Expo), `apps/movil/src/lib/supabase.ts`, `apps/movil/src/app/_layout.tsx`, `apps/movil/src/app/login.tsx`, `apps/movil/src/app/(tabs)/_layout.tsx`, `apps/movil/src/app/(tabs)/index.tsx`
 
 **Interfaces:**
 - Consume: `@gym/core` (`Database`), tablas y RLS de las Tareas 3 y 4
 - Produce:
-  - `supabase: SupabaseClient<Database>` exportado desde `apps/movil/lib/supabase.ts`
+  - `supabase: SupabaseClient<Database>` exportado desde `apps/movil/src/lib/supabase.ts`
   - Las rutas `/login` y `/(tabs)`, con la redirección entre ambas ya resuelta en `app/_layout.tsx`
 
 - [ ] **Paso 1: Crear la app**
 
 ```bash
-npx create-expo-app@latest apps/movil --template default
-npm install --workspace apps/movil @supabase/supabase-js @react-native-async-storage/async-storage react-native-url-polyfill
-npm install --workspace apps/movil @gym/core@*
+npx create-expo-app@latest apps/movil --template default --no-install --yes
+
+# El workspace es nuevo: sin este install de raíz npm no lo registra.
+npm install
+
+# expo install y no npm install: elige las versiones que corresponden al SDK.
+cd apps/movil && npx expo install @supabase/supabase-js @react-native-async-storage/async-storage react-native-url-polyfill && cd ../..
+npm install --workspace movil @gym/core@*
 ```
+
+> Aunque le pases `--yes`, `create-expo-app` igual pregunta "Skip initializing
+> a new git repository?". Contestá que sí: estamos dentro de un repo.
+
+El template del SDK 57 trae una app de demostración. Hay que borrarla, porque
+`src/app/index.tsx` y `src/app/explore.tsx` chocan con las rutas de abajo:
+
+```bash
+rm -rf apps/movil/src/components apps/movil/src/hooks apps/movil/src/constants \n       apps/movil/src/global.css apps/movil/src/app/index.tsx apps/movil/src/app/explore.tsx
+```
+
+No es solo prolijidad: `src/hooks/use-color-scheme.web.ts` llama a `setState`
+dentro de un efecto y hace fallar `expo lint` con un **error**, no un warning.
+
+En `app.json`, cambiar `"web": { "output": "static" }` por `"single"`. Con
+`static`, Expo prerenderiza las rutas en Node y el export muere con
+`ReferenceError: window is not defined`: `lib/supabase.ts` construye el cliente
+al importarse y AsyncStorage toca `window`. Acá no hay nada que prerenderizar,
+todas las pantallas dependen de la sesión.
+
+> **Ojo con `tsc`**: `expo-env.d.ts` y `.expo/types` los genera `expo start`
+> (no `expo export`). Hasta que corras el server una vez, el typecheck falla
+> por tipos que todavía no existen.
 
 - [ ] **Paso 2: Configurar el entorno**
 
-Crear `apps/movil/.env`:
+Crear `apps/movil/.env` usando **la IP de tu máquina en la red local**, no
+`127.0.0.1` (`ipconfig` → *Dirección IPv4*):
 ```bash
-EXPO_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
+EXPO_PUBLIC_SUPABASE_URL=http://192.168.0.15:54321
 EXPO_PUBLIC_SUPABASE_ANON_KEY=<el anon key de db:estado>
 ```
 
-> **Para probar en un celular real**, `127.0.0.1` no sirve: el teléfono no es tu computadora. Reemplazá por la IP de tu máquina en la red local (`ipconfig` → *Dirección IPv4*), por ejemplo `http://192.168.0.15:54321`. En el emulador de Android, usá `http://10.0.2.2:54321`.
+> Desde un celular con Expo Go, `127.0.0.1` es el propio teléfono, así que no
+> llega a nada. La IP de la LAN sirve para las dos cosas —celular y vista web—
+> y Supabase local ya escucha ahí, no hace falta configurarle nada. En el
+> emulador de Android va `http://10.0.2.2:54321`. Si cambiás de red, la IP
+> cambia y hay que actualizar el archivo.
 
 - [ ] **Paso 3: Cliente de Supabase**
 
-`apps/movil/lib/supabase.ts`:
+`apps/movil/src/lib/supabase.ts`:
 ```ts
 import 'react-native-url-polyfill/auto'
 import AsyncStorage from '@react-native-async-storage/async-storage'
@@ -1247,13 +1280,13 @@ export const supabase = createClient<Database>(
 
 - [ ] **Paso 4: Layout raíz con manejo de sesión**
 
-`apps/movil/app/_layout.tsx`:
+`apps/movil/src/app/_layout.tsx`:
 ```tsx
 import { useEffect, useState } from 'react'
 import { ActivityIndicator, View } from 'react-native'
 import { Stack, router, useSegments } from 'expo-router'
 import type { Session } from '@supabase/supabase-js'
-import { supabase } from '../lib/supabase'
+import { supabase } from '@/lib/supabase'
 
 export default function LayoutRaiz() {
   const [sesion, setSesion] = useState<Session | null>(null)
@@ -1292,11 +1325,11 @@ export default function LayoutRaiz() {
 
 - [ ] **Paso 5: Pantalla de login**
 
-`apps/movil/app/login.tsx`:
+`apps/movil/src/app/login.tsx`:
 ```tsx
 import { useState } from 'react'
 import { Alert, Button, StyleSheet, Text, TextInput, View } from 'react-native'
-import { supabase } from '../lib/supabase'
+import { supabase } from '@/lib/supabase'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -1335,7 +1368,7 @@ const estilos = StyleSheet.create({
 
 - [ ] **Paso 6: Pestañas con los datos de la membresía**
 
-`apps/movil/app/(tabs)/_layout.tsx`:
+`apps/movil/src/app/(tabs)/_layout.tsx`:
 ```tsx
 import { Tabs } from 'expo-router'
 
@@ -1348,11 +1381,11 @@ export default function LayoutPestanas() {
 }
 ```
 
-`apps/movil/app/(tabs)/index.tsx`:
+`apps/movil/src/app/(tabs)/index.tsx`:
 ```tsx
 import { useEffect, useState } from 'react'
 import { Button, StyleSheet, Text, View } from 'react-native'
-import { supabase } from '../../lib/supabase'
+import { supabase } from '@/lib/supabase'
 
 export default function Hoy() {
   const [gym, setGym] = useState<string | null>(null)
@@ -2650,8 +2683,8 @@ git commit -m "Agregar Edge Function que emite URL firmada de reproducción"
 ### Tarea 14: Catálogo de ejercicios en la app móvil
 
 **Archivos:**
-- Crear: `apps/movil/app/(tabs)/ejercicios/index.tsx`
-- Modificar: `apps/movil/app/(tabs)/_layout.tsx`
+- Crear: `apps/movil/src/app/(tabs)/ejercicios/index.tsx`
+- Modificar: `apps/movil/src/app/(tabs)/_layout.tsx`
 
 **Interfaces:**
 - Consume: `supabase` (Tarea 6), tabla `ejercicios` (Tarea 7), y de `@gym/core`: `etiqueta`, `GRUPOS_MUSCULARES`, `EQUIPAMIENTOS`, tipos `GrupoMuscular` y `Equipamiento` (Tarea 10)
@@ -2659,7 +2692,7 @@ git commit -m "Agregar Edge Function que emite URL firmada de reproducción"
 
 - [ ] **Paso 1: Agregar la pestaña**
 
-`apps/movil/app/(tabs)/_layout.tsx`:
+`apps/movil/src/app/(tabs)/_layout.tsx`:
 ```tsx
 import { Tabs } from 'expo-router'
 
@@ -2675,7 +2708,7 @@ export default function LayoutPestanas() {
 
 - [ ] **Paso 2: Escribir el listado con buscador y filtro**
 
-`apps/movil/app/(tabs)/ejercicios/index.tsx`:
+`apps/movil/src/app/(tabs)/ejercicios/index.tsx`:
 ```tsx
 import { useEffect, useMemo, useState } from 'react'
 import {
@@ -2687,7 +2720,7 @@ import {
   EQUIPAMIENTOS, GRUPOS_MUSCULARES, etiqueta,
   type Equipamiento, type GrupoMuscular,
 } from '@gym/core'
-import { supabase } from '../../../lib/supabase'
+import { supabase } from '@/lib/supabase'
 
 interface Ejercicio {
   id: string
@@ -2864,7 +2897,7 @@ git commit -m "Agregar catálogo de ejercicios con buscador y filtros en la app 
 ### Tarea 15: Detalle del ejercicio con reproductor
 
 **Archivos:**
-- Crear: `apps/movil/app/(tabs)/ejercicios/[id].tsx`, `apps/movil/app/(tabs)/ejercicios/_layout.tsx`
+- Crear: `apps/movil/src/app/(tabs)/ejercicios/[id].tsx`, `apps/movil/src/app/(tabs)/ejercicios/_layout.tsx`
 
 **Interfaces:**
 - Consume: `POST /functions/v1/video-url` (Tarea 13), `supabase`, `etiqueta`
@@ -2880,7 +2913,7 @@ npx expo install expo-video --project apps/movil
 
 - [ ] **Paso 2: Crear el layout de la sección**
 
-`apps/movil/app/(tabs)/ejercicios/_layout.tsx`:
+`apps/movil/src/app/(tabs)/ejercicios/_layout.tsx`:
 ```tsx
 import { Stack } from 'expo-router'
 
@@ -2891,14 +2924,14 @@ export default function LayoutEjercicios() {
 
 - [ ] **Paso 3: Escribir la pantalla de detalle**
 
-`apps/movil/app/(tabs)/ejercicios/[id].tsx`:
+`apps/movil/src/app/(tabs)/ejercicios/[id].tsx`:
 ```tsx
 import { useEffect, useState } from 'react'
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { Stack, useLocalSearchParams } from 'expo-router'
 import { useVideoPlayer, VideoView } from 'expo-video'
 import { etiqueta, type Equipamiento, type GrupoMuscular } from '@gym/core'
-import { supabase } from '../../../lib/supabase'
+import { supabase } from '@/lib/supabase'
 
 interface Detalle {
   nombre: string
