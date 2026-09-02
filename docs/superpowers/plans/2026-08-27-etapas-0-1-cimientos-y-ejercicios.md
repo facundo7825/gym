@@ -3011,8 +3011,8 @@ git commit -m "Agregar Edge Function que emite URL firmada de reproducción"
 ### Tarea 14: Catálogo de ejercicios en la app móvil
 
 **Archivos:**
-- Crear: `apps/movil/src/app/(tabs)/ejercicios/index.tsx`
-- Modificar: `apps/movil/src/app/(tabs)/_layout.tsx`
+- Crear: `packages/core/src/filtro-ejercicios.ts`, `packages/core/tests/filtro-ejercicios.test.ts`, `apps/movil/src/app/(tabs)/ejercicios/index.tsx`, `apps/movil/src/app/(tabs)/ejercicios/_layout.tsx`, `apps/movil/src/app/(tabs)/ejercicios/[id].tsx`
+- Modificar: `apps/movil/src/app/(tabs)/_layout.tsx`, `packages/core/src/index.ts`
 
 **Interfaces:**
 - Consume: `supabase` (Tarea 6), tabla `ejercicios` (Tarea 7), y de `@gym/core`: `etiqueta`, `GRUPOS_MUSCULARES`, `EQUIPAMIENTOS`, tipos `GrupoMuscular` y `Equipamiento` (Tarea 10)
@@ -3034,6 +3034,118 @@ export default function LayoutPestanas() {
 }
 ```
 
+- [ ] **Paso 1b: Extraer el filtrado a `core`, con su test**
+
+Dentro del componente, la lógica de filtrado solo se verifica tocando la app.
+Afuera es una función pura y se prueba sola. Los seis escenarios del Paso 3
+pasan de comprobarse a mano a comprobarse solos.
+
+`packages/core/tests/filtro-ejercicios.test.ts`:
+```ts
+import { describe, expect, it } from 'vitest'
+import { filtrarEjercicios, type EjercicioFiltrable } from '../src/filtro-ejercicios'
+
+const catalogo: EjercicioFiltrable[] = [
+  { id: '1', nombre: 'Press de banca con barra', grupo_muscular: 'pecho', equipamiento: 'barra', gym_id: null },
+  { id: '2', nombre: 'Press inclinado con mancuernas', grupo_muscular: 'pecho', equipamiento: 'mancuerna', gym_id: null },
+  { id: '3', nombre: 'Sentadilla con barra', grupo_muscular: 'cuadriceps', equipamiento: 'barra', gym_id: null },
+  { id: '4', nombre: 'Prensa 45° Hammer', grupo_muscular: 'cuadriceps', equipamiento: 'maquina', gym_id: 'gym-1' },
+  { id: '5', nombre: 'Remo con barra', grupo_muscular: 'espalda', equipamiento: 'barra', gym_id: null },
+]
+const nombres = (xs: EjercicioFiltrable[]) => xs.map((x) => x.nombre)
+const SIN_FILTROS = { busqueda: '', grupo: null, equipo: null, soloMiGym: false }
+
+describe('filtrarEjercicios', () => {
+  it('sin filtros devuelve todo', () => {
+    expect(filtrarEjercicios(catalogo, SIN_FILTROS)).toHaveLength(5)
+  })
+
+  it('busca por nombre sin distinguir mayúsculas ni espacios de más', () => {
+    expect(nombres(filtrarEjercicios(catalogo, { ...SIN_FILTROS, busqueda: '  SENT ' })))
+      .toEqual(['Sentadilla con barra'])
+  })
+
+  it('filtra por grupo muscular', () => {
+    expect(nombres(filtrarEjercicios(catalogo, { ...SIN_FILTROS, grupo: 'pecho' })))
+      .toEqual(['Press de banca con barra', 'Press inclinado con mancuernas'])
+  })
+
+  it('filtra por equipamiento', () => {
+    expect(filtrarEjercicios(catalogo, { ...SIN_FILTROS, equipo: 'barra' })).toHaveLength(3)
+  })
+
+  it('combina grupo y equipamiento', () => {
+    expect(nombres(filtrarEjercicios(catalogo, { ...SIN_FILTROS, grupo: 'pecho', equipo: 'barra' })))
+      .toEqual(['Press de banca con barra'])
+  })
+
+  it('"solo lo que hay acá" deja fuera el catálogo global', () => {
+    expect(nombres(filtrarEjercicios(catalogo, { ...SIN_FILTROS, soloMiGym: true })))
+      .toEqual(['Prensa 45° Hammer'])
+  })
+
+  it('los tres filtros a la vez sin coincidencias devuelve vacío, no todo', () => {
+    expect(filtrarEjercicios(catalogo, {
+      busqueda: 'zzz', grupo: 'pecho', equipo: 'barra', soloMiGym: true,
+    })).toEqual([])
+  })
+
+  // La búsqueda es lo que escribe el usuario: si alguien arma el filtro con
+  // una expresión regular en vez de includes(), un paréntesis suelto explota.
+  it('no se rompe con caracteres especiales en la búsqueda', () => {
+    expect(filtrarEjercicios(catalogo, { ...SIN_FILTROS, busqueda: '45°' }))
+      .toHaveLength(1)
+    expect(filtrarEjercicios(catalogo, { ...SIN_FILTROS, busqueda: '(' })).toEqual([])
+  })
+})
+```
+
+`packages/core/src/filtro-ejercicios.ts`:
+```ts
+import type { Equipamiento, GrupoMuscular } from './catalogo'
+
+/** Lo mínimo que necesita el filtro. La pantalla trae más columnas. */
+export interface EjercicioFiltrable {
+  id: string
+  nombre: string
+  grupo_muscular: GrupoMuscular
+  equipamiento: Equipamiento
+  gym_id: string | null
+}
+
+export interface Filtros {
+  busqueda: string
+  grupo: GrupoMuscular | null
+  equipo: Equipamiento | null
+  soloMiGym: boolean
+}
+
+/**
+ * Vive acá y no dentro de la pantalla para poder probarlo: en un componente
+ * de React Native esta lógica solo se verifica a mano, tocando la app.
+ */
+export function filtrarEjercicios(
+  ejercicios: EjercicioFiltrable[],
+  { busqueda, grupo, equipo, soloMiGym }: Filtros,
+): EjercicioFiltrable[] {
+  const texto = busqueda.trim().toLowerCase()
+
+  return ejercicios.filter((x) => {
+    if (grupo && x.grupo_muscular !== grupo) return false
+    if (equipo && x.equipamiento !== equipo) return false
+    // "Solo lo que hay acá" = ejercicios propios del gimnasio, que son
+    // los que se cargaron sobre máquinas que existen físicamente.
+    if (soloMiGym && x.gym_id === null) return false
+    // includes() y no una expresión regular: el texto lo escribe el usuario,
+    // y un paréntesis suelto rompería un RegExp armado con él.
+    if (texto && !x.nombre.toLowerCase().includes(texto)) return false
+    return true
+  })
+}
+```
+
+Y exportarla desde `packages/core/src/index.ts`.
+
 - [ ] **Paso 2: Escribir el listado con buscador y filtro**
 
 `apps/movil/src/app/(tabs)/ejercicios/index.tsx`:
@@ -3045,7 +3157,7 @@ import {
 } from 'react-native'
 import { Link, Stack } from 'expo-router'
 import {
-  EQUIPAMIENTOS, GRUPOS_MUSCULARES, etiqueta,
+  EQUIPAMIENTOS, GRUPOS_MUSCULARES, etiqueta, filtrarEjercicios,
   type Equipamiento, type GrupoMuscular,
 } from '@gym/core'
 import { supabase } from '@/lib/supabase'
@@ -3081,18 +3193,12 @@ export default function ListaEjercicios() {
       })
   }, [])
 
-  const visibles = useMemo(() => {
-    const texto = busqueda.trim().toLowerCase()
-    return ejercicios.filter((x) => {
-      if (grupo && x.grupo_muscular !== grupo) return false
-      if (equipo && x.equipamiento !== equipo) return false
-      // "Solo lo que hay acá" = ejercicios propios del gimnasio, que son
-      // los que se cargaron sobre máquinas que existen físicamente.
-      if (soloMiGym && x.gym_id === null) return false
-      if (texto && !x.nombre.toLowerCase().includes(texto)) return false
-      return true
-    })
-  }, [ejercicios, busqueda, grupo, equipo, soloMiGym])
+  // El filtrado vive en @gym/core para poder probarlo: acá adentro solo se
+  // verificaría a mano, tocando la app.
+  const visibles = useMemo(
+    () => filtrarEjercicios(ejercicios, { busqueda, grupo, equipo, soloMiGym }) as Ejercicio[],
+    [ejercicios, busqueda, grupo, equipo, soloMiGym],
+  )
 
   if (cargando) {
     return (
@@ -3200,12 +3306,125 @@ const estilos = StyleSheet.create({
 })
 ```
 
+- [ ] **Paso 2b: Crear la pantalla de detalle (sin reproductor)**
+
+Expo Router tipa las rutas: el `href` del listado **no compila** si
+`(tabs)/ejercicios/[id].tsx` no existe. Así que la pantalla de detalle se crea
+acá, con todo menos el video; la Tarea 15 le agrega el reproductor.
+
+> Los tipos de rutas los genera `expo start`, no `expo export`. Hasta que
+> corras el server una vez, `tsc` sigue marcando el `href` como inválido
+> aunque el archivo ya exista.
+
+`apps/movil/src/app/(tabs)/ejercicios/_layout.tsx`:
+```tsx
+import { Stack } from 'expo-router'
+
+export default function LayoutEjercicios() {
+  return <Stack />
+}
+```
+
+`apps/movil/src/app/(tabs)/ejercicios/[id].tsx`:
+```tsx
+import { useEffect, useState } from 'react'
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Stack, useLocalSearchParams } from 'expo-router'
+import { etiqueta, type Equipamiento, type GrupoMuscular } from '@gym/core'
+import { supabase } from '@/lib/supabase'
+
+interface Ejercicio {
+  nombre: string
+  descripcion: string | null
+  instrucciones: string | null
+  grupo_muscular: GrupoMuscular
+  equipamiento: Equipamiento
+  video_id: string | null
+}
+
+export default function DetalleEjercicio() {
+  const { id } = useLocalSearchParams<{ id: string }>()
+  const [ejercicio, setEjercicio] = useState<Ejercicio | null>(null)
+  const [cargando, setCargando] = useState(true)
+
+  useEffect(() => {
+    // RLS decide si este ejercicio es visible: si es de otro gimnasio, no
+    // vuelve nada y se muestra el mensaje de no encontrado.
+    supabase
+      .from('ejercicios')
+      .select('nombre, descripcion, instrucciones, grupo_muscular, equipamiento, video_id')
+      .eq('id', id)
+      .maybeSingle()
+      .then(({ data }) => {
+        setEjercicio(data as Ejercicio | null)
+        setCargando(false)
+      })
+  }, [id])
+
+  if (cargando) {
+    return <View style={estilos.centrado}><ActivityIndicator /></View>
+  }
+
+  if (!ejercicio) {
+    return (
+      <View style={estilos.centrado}>
+        <Text style={estilos.gris}>No encontramos este ejercicio.</Text>
+      </View>
+    )
+  }
+
+  return (
+    <ScrollView contentContainerStyle={estilos.contenido}>
+      <Stack.Screen options={{ title: ejercicio.nombre }} />
+
+      {/* Acá va el reproductor en la Tarea 15. Necesita la URL firmada que
+          emite la Edge Function video-url, que a su vez necesita la cuenta
+          de Cloudflare. Hasta entonces, solo se avisa que el video existe. */}
+      {ejercicio.video_id && (
+        <View style={estilos.videoPendiente}>
+          <Text style={estilos.gris}>Este ejercicio tiene un video.</Text>
+        </View>
+      )}
+
+      <Text style={estilos.titulo}>{ejercicio.nombre}</Text>
+      <Text style={estilos.gris}>
+        {etiqueta(ejercicio.grupo_muscular)} · {etiqueta(ejercicio.equipamiento)}
+      </Text>
+
+      {ejercicio.descripcion && <Text style={estilos.parrafo}>{ejercicio.descripcion}</Text>}
+
+      {ejercicio.instrucciones && (
+        <>
+          <Text style={estilos.subtitulo}>Cómo se hace</Text>
+          <Text style={estilos.parrafo}>{ejercicio.instrucciones}</Text>
+        </>
+      )}
+    </ScrollView>
+  )
+}
+
+const estilos = StyleSheet.create({
+  centrado: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  contenido: { padding: 20, gap: 8 },
+  titulo: { fontSize: 24, fontWeight: '600' },
+  subtitulo: { fontSize: 16, fontWeight: '600', marginTop: 12 },
+  parrafo: { fontSize: 15, lineHeight: 22 },
+  gris: { color: '#777' },
+  videoPendiente: {
+    aspectRatio: 16 / 9, borderRadius: 12, backgroundColor: '#eee',
+    alignItems: 'center', justifyContent: 'center',
+  },
+})
+```
+
 - [ ] **Paso 3: Probar a mano**
 
 Con la app corriendo y sesión iniciada como el socio de prueba:
 
 1. La pestaña *Ejercicios* muestra los 12 del catálogo general más los propios del gimnasio.
 2. Escribir "sent" → queda solo "Sentadilla con barra". Borrar el texto los devuelve a todos.
+   (Los puntos 2 a 6 ya los cubre `filtro-ejercicios.test.ts`: acá se comprueba
+   que los chips y el buscador estén bien cableados, no la lógica.)
 3. Tocar el chip *Pecho* → solo los de pecho. Tocarlo de nuevo lo desactiva.
 4. Tocar el chip *Barra* → solo los de barra. Combinado con *Pecho*, solo el press de banca.
 5. Tocar *Solo lo que hay acá* → desaparecen los del catálogo general y quedan los cargados por el gimnasio.
