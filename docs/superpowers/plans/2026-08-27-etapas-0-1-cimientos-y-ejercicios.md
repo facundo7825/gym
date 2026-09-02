@@ -2068,30 +2068,70 @@ git commit -m "Agregar alta y listado de máquinas en el panel"
 Sin video todavía: eso llega en la Tarea 12.
 
 **Archivos:**
-- Crear: `apps/panel/src/app/(panel)/ejercicios/page.tsx`, `apps/panel/src/app/(panel)/ejercicios/acciones.ts`
+- Crear: `packages/core/src/catalogo.ts`, `packages/core/tests/catalogo.test.ts`, `apps/panel/src/app/(panel)/ejercicios/page.tsx`, `apps/panel/src/app/(panel)/ejercicios/acciones.ts`, `apps/panel/src/app/(panel)/ejercicios/formulario.tsx`
 
 **Interfaces:**
 - Consume: `crearClienteServidor()`, tablas `ejercicios` y `maquinas`
-- Produce: `crearEjercicio(datos: FormData): Promise<{ error?: string }>`
+- Produce: `crearEjercicio(estadoPrevio, datos): Promise<{ error?: string }>` — Server Action para `useActionState`
 
-- [ ] **Paso 1: Exportar las listas de opciones desde `core`**
+- [ ] **Paso 1: Escribir el test de `etiqueta` (falla)**
+
+`packages/core/tests/catalogo.test.ts`:
+```ts
+import { describe, expect, it } from 'vitest'
+import { EQUIPAMIENTOS, GRUPOS_MUSCULARES, etiqueta } from '../src/catalogo'
+import { Constants } from '../src/tipos-db'
+
+describe('etiqueta', () => {
+  it('traduce los valores de la base a texto con acentos', () => {
+    expect(etiqueta('biceps')).toBe('Bíceps')
+    expect(etiqueta('cuerpo_completo')).toBe('Cuerpo completo')
+    expect(etiqueta('peso_corporal')).toBe('Peso corporal')
+  })
+
+  it('tiene etiqueta para TODOS los valores posibles', () => {
+    for (const valor of [...GRUPOS_MUSCULARES, ...EQUIPAMIENTOS]) {
+      expect(etiqueta(valor)).toBeTruthy()
+    }
+  })
+})
+
+// Las listas se derivan de los tipos que genera Supabase, no se copian a mano.
+// Si alguien las vuelve a escribir a mano, este test avisa en cuanto la base
+// cambie: el enum de PostgreSQL es la única fuente de verdad.
+describe('las listas salen del enum de la base', () => {
+  it('GRUPOS_MUSCULARES es el enum grupo_muscular', () => {
+    expect(GRUPOS_MUSCULARES).toEqual(Constants.public.Enums.grupo_muscular)
+  })
+
+  it('EQUIPAMIENTOS es el enum tipo_equipamiento', () => {
+    expect(EQUIPAMIENTOS).toEqual(Constants.public.Enums.tipo_equipamiento)
+  })
+})
+```
+
+Correr `npm run test:core`: tiene que **fallar** con "Cannot find module
+'../src/catalogo'". Si pasa, el test no está probando lo que creés.
+
+- [ ] **Paso 2: Implementar `catalogo.ts`**
 
 `packages/core/src/catalogo.ts`:
 ```ts
-export const GRUPOS_MUSCULARES = [
-  'pecho', 'espalda', 'hombros', 'biceps', 'triceps', 'cuadriceps',
-  'isquiotibiales', 'gluteos', 'gemelos', 'abdominales', 'antebrazo',
-  'cuerpo_completo',
-] as const
+import { Constants } from './tipos-db'
 
-export const EQUIPAMIENTOS = [
-  'barra', 'mancuerna', 'maquina', 'polea', 'kettlebell', 'banda',
-  'peso_corporal', 'otro',
-] as const
+// Derivadas del enum de PostgreSQL, no copiadas a mano: `npm run db:tipos`
+// regenera tipos-db.ts desde la base, así que estas listas no pueden quedar
+// desincronizadas con ella. Una lista escrita a mano sí puede, y en silencio.
+export const GRUPOS_MUSCULARES = Constants.public.Enums.grupo_muscular
+export const EQUIPAMIENTOS = Constants.public.Enums.tipo_equipamiento
 
 export type GrupoMuscular = (typeof GRUPOS_MUSCULARES)[number]
 export type Equipamiento = (typeof EQUIPAMIENTOS)[number]
 
+// El Record exige una clave por cada valor posible. Si mañana se agrega un
+// grupo muscular al enum y se regeneran los tipos, esto deja de compilar
+// hasta que alguien escriba su etiqueta. Es a propósito: mejor un error de
+// compilación que una pantalla mostrando "isquiotibiales_posteriores".
 const ETIQUETAS: Record<GrupoMuscular | Equipamiento, string> = {
   pecho: 'Pecho', espalda: 'Espalda', hombros: 'Hombros', biceps: 'Bíceps',
   triceps: 'Tríceps', cuadriceps: 'Cuádriceps', isquiotibiales: 'Isquiotibiales',
@@ -2114,32 +2154,16 @@ export { GRUPOS_MUSCULARES, EQUIPAMIENTOS, etiqueta } from './catalogo'
 export type { GrupoMuscular, Equipamiento } from './catalogo'
 ```
 
-- [ ] **Paso 2: Escribir el test de `etiqueta`**
-
-`packages/core/tests/catalogo.test.ts`:
-```ts
-import { describe, expect, it } from 'vitest'
-import { EQUIPAMIENTOS, GRUPOS_MUSCULARES, etiqueta } from '../src/catalogo'
-
-describe('etiqueta', () => {
-  it('traduce los valores de la base a texto con acentos', () => {
-    expect(etiqueta('biceps')).toBe('Bíceps')
-    expect(etiqueta('cuerpo_completo')).toBe('Cuerpo completo')
-    expect(etiqueta('peso_corporal')).toBe('Peso corporal')
-  })
-
-  it('tiene etiqueta para TODOS los valores posibles', () => {
-    for (const valor of [...GRUPOS_MUSCULARES, ...EQUIPAMIENTOS]) {
-      expect(etiqueta(valor)).toBeTruthy()
-    }
-  })
-})
-```
-
 - [ ] **Paso 3: Correr el test**
 
 Correr: `npm run test:core`
-Esperado: PASA. (Si agregás un valor al enum y te olvidás la etiqueta, el segundo test lo detecta.)
+Esperado: PASA.
+
+La red de seguridad real no es el test sino el tipo: `Record<GrupoMuscular |
+Equipamiento, string>` exige una clave por valor posible, así que si mañana se
+agrega un grupo al enum y se regeneran los tipos, `catalogo.ts` **deja de
+compilar** hasta que alguien escriba la etiqueta. Comprobalo borrando una y
+corriendo `tsc`.
 
 - [ ] **Paso 4: Escribir la Server Action**
 
@@ -2151,7 +2175,14 @@ import { revalidatePath } from 'next/cache'
 import { EQUIPAMIENTOS, GRUPOS_MUSCULARES } from '@gym/core'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 
-export async function crearEjercicio(datos: FormData): Promise<{ error?: string }> {
+export type EstadoFormulario = { error?: string }
+
+// Estado previo adelante: es la firma que pide useActionState. Ver la nota en
+// maquinas/acciones.ts sobre por qué no puede ir directo en <form action>.
+export async function crearEjercicio(
+  _estadoPrevio: EstadoFormulario,
+  datos: FormData,
+): Promise<EstadoFormulario> {
   const nombre = String(datos.get('nombre') ?? '').trim()
   const grupo = String(datos.get('grupo_muscular') ?? '')
   const equipamiento = String(datos.get('equipamiento') ?? '')
@@ -2176,6 +2207,9 @@ export async function crearEjercicio(datos: FormData): Promise<{ error?: string 
     .order('created_at').limit(1).maybeSingle()
   if (!membresia) return { error: 'No estás asociado a ningún gimnasio' }
 
+  // maquina_id no se valida acá contra el gimnasio: la clave foránea compuesta
+  // (maquina_id, gym_id) de 0003_ejercicios.sql rechaza una máquina ajena
+  // aunque alguien manipule el formulario.
   const { error } = await supabase.from('ejercicios').insert({
     gym_id: membresia.gym_id,
     nombre,
@@ -2197,9 +2231,9 @@ export async function crearEjercicio(datos: FormData): Promise<{ error?: string 
 
 `apps/panel/src/app/(panel)/ejercicios/page.tsx`:
 ```tsx
-import { EQUIPAMIENTOS, GRUPOS_MUSCULARES, etiqueta } from '@gym/core'
+import { etiqueta } from '@gym/core'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
-import { crearEjercicio } from './acciones'
+import { FormularioEjercicio } from './formulario'
 
 export default async function Ejercicios() {
   const supabase = await crearClienteServidor()
@@ -2219,39 +2253,7 @@ export default async function Ejercicios() {
     <div className="space-y-8">
       <h1 className="text-2xl font-semibold">Ejercicios</h1>
 
-      <form action={crearEjercicio} className="grid max-w-2xl gap-2 sm:grid-cols-2">
-        <input name="nombre" placeholder="Nombre" required
-          className="rounded border px-3 py-2 sm:col-span-2" />
-
-        <select name="grupo_muscular" required className="rounded border px-3 py-2">
-          <option value="">Grupo muscular…</option>
-          {GRUPOS_MUSCULARES.map((g) => (
-            <option key={g} value={g}>{etiqueta(g)}</option>
-          ))}
-        </select>
-
-        <select name="equipamiento" required className="rounded border px-3 py-2">
-          <option value="">Equipamiento…</option>
-          {EQUIPAMIENTOS.map((eq) => (
-            <option key={eq} value={eq}>{etiqueta(eq)}</option>
-          ))}
-        </select>
-
-        <select name="maquina_id" className="rounded border px-3 py-2 sm:col-span-2">
-          <option value="">Sin máquina asociada</option>
-          {maquinas?.map((m) => (
-            <option key={m.id} value={m.id}>{m.nombre}</option>
-          ))}
-        </select>
-
-        <textarea name="descripcion" placeholder="Descripción (opcional)"
-          className="rounded border px-3 py-2 sm:col-span-2" rows={2} />
-
-        <button type="submit"
-          className="rounded bg-black px-4 py-2 text-white sm:col-span-2">
-          Crear ejercicio
-        </button>
-      </form>
+      <FormularioEjercicio maquinas={maquinas ?? []} />
 
       <section>
         <h2 className="mb-2 font-semibold">De mi gimnasio ({propios.length})</h2>
@@ -2290,11 +2292,80 @@ export default async function Ejercicios() {
 }
 ```
 
+- [ ] **Paso 5b: Escribir el formulario (componente cliente)**
+
+`apps/panel/src/app/(panel)/ejercicios/formulario.tsx`:
+```tsx
+'use client'
+
+import { useActionState } from 'react'
+import { EQUIPAMIENTOS, GRUPOS_MUSCULARES, etiqueta } from '@gym/core'
+import { crearEjercicio, type EstadoFormulario } from './acciones'
+
+const INICIAL: EstadoFormulario = {}
+
+export function FormularioEjercicio({
+  maquinas,
+}: {
+  maquinas: { id: string; nombre: string }[]
+}) {
+  const [estado, accion, pendiente] = useActionState(crearEjercicio, INICIAL)
+
+  return (
+    <div className="max-w-2xl space-y-2">
+      <form action={accion} className="grid gap-2 sm:grid-cols-2">
+        <input name="nombre" placeholder="Nombre" required
+          className="rounded border px-3 py-2 sm:col-span-2" />
+
+        <select name="grupo_muscular" required className="rounded border px-3 py-2">
+          <option value="">Grupo muscular…</option>
+          {GRUPOS_MUSCULARES.map((g) => (
+            <option key={g} value={g}>{etiqueta(g)}</option>
+          ))}
+        </select>
+
+        <select name="equipamiento" required className="rounded border px-3 py-2">
+          <option value="">Equipamiento…</option>
+          {EQUIPAMIENTOS.map((eq) => (
+            <option key={eq} value={eq}>{etiqueta(eq)}</option>
+          ))}
+        </select>
+
+        <select name="maquina_id" className="rounded border px-3 py-2 sm:col-span-2">
+          <option value="">Sin máquina asociada</option>
+          {maquinas.map((m) => (
+            <option key={m.id} value={m.id}>{m.nombre}</option>
+          ))}
+        </select>
+
+        <textarea name="descripcion" placeholder="Descripción (opcional)"
+          className="rounded border px-3 py-2 sm:col-span-2" rows={2} />
+
+        <button type="submit" disabled={pendiente}
+          className="rounded bg-black px-4 py-2 text-white disabled:opacity-50 sm:col-span-2">
+          {pendiente ? 'Creando…' : 'Crear ejercicio'}
+        </button>
+      </form>
+
+      {estado.error && (
+        <p role="alert" className="text-sm text-red-600">{estado.error}</p>
+      )}
+    </div>
+  )
+}
+```
+
 - [ ] **Paso 6: Probar a mano**
 
 1. `/ejercicios` muestra el **catálogo general con 12** y "De mi gimnasio (0)".
+   Si corriste los tests de RLS antes, van a aparecer algunos globales de más:
+   comparten esta base y no se limpian entre archivos. Con `db:reset` son 12.
 2. Crear "Prensa 45° Hammer", cuádriceps, máquina, asociada a la máquina de la Tarea 9 → aparece en "De mi gimnasio".
-3. Enviar sin elegir grupo muscular → el navegador lo bloquea.
+3. Enviar sin elegir grupo muscular → el navegador lo bloquea por `required`, y
+   si alguien saltea el navegador, la acción devuelve "Elegí un grupo muscular".
+4. Manipular el `maquina_id` para apuntar a una máquina de otro gimnasio → tiene
+   que fallar con "No pudimos guardar el ejercicio". La acción no lo valida: lo
+   rechaza la clave foránea compuesta de la Tarea 7.
 
 - [ ] **Paso 7: Commit**
 

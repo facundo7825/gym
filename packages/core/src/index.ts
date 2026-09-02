@@ -1,3 +1,5 @@
 export { puede } from './permisos'
 export type { Rol, Accion } from './permisos'
 export type { Database } from './tipos-db'
+export { GRUPOS_MUSCULARES, EQUIPAMIENTOS, etiqueta } from './catalogo'
+export type { GrupoMuscular, Equipamiento } from './catalogo'
