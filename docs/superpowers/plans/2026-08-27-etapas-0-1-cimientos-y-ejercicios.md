@@ -2397,6 +2397,7 @@ git commit -m "Agregar alta y listado de ejercicios en el panel"
 ```ts
 import { describe, expect, it } from 'vitest'
 import { mapearEstadoCloudflare, urlHls } from '../src/video'
+import { Constants } from '../src/tipos-db'
 
 describe('mapearEstadoCloudflare', () => {
   it('traduce los estados de Cloudflare a los nuestros', () => {
@@ -2411,6 +2412,16 @@ describe('mapearEstadoCloudflare', () => {
     // Si Cloudflare inventa un estado nuevo, preferimos marcarlo en error
     // y que alguien lo vea, antes que dejarlo "procesando" para siempre.
     expect(mapearEstadoCloudflare('vaya-a-saber')).toBe('error')
+  })
+
+  // Lo que devuelve esta función se escribe en videos.estado, que es un enum
+  // de PostgreSQL. Si alguien agrega un estado allá y no acá, el insert falla
+  // en producción; este test lo agarra antes.
+  it('solo devuelve valores que existen en el enum estado_video', () => {
+    const posibles = ['ready', 'queued', 'inprogress', 'downloading', 'error', 'cualquiera']
+    for (const estado of posibles) {
+      expect(Constants.public.Enums.estado_video).toContain(mapearEstadoCloudflare(estado))
+    }
   })
 })
 
@@ -2432,7 +2443,12 @@ Esperado: FALLA — no existe `../src/video`.
 
 `packages/core/src/video.ts`:
 ```ts
-export type EstadoVideo = 'procesando' | 'listo' | 'error'
+import type { Constants } from './tipos-db'
+
+// Derivado del enum de PostgreSQL, igual que en catalogo.ts: este valor se
+// escribe en videos.estado, así que si los dos se separan el insert falla en
+// producción y no acá.
+export type EstadoVideo = (typeof Constants)['public']['Enums']['estado_video'][number]
 
 /**
  * Cloudflare Stream reporta el estado con su propio vocabulario.
@@ -2448,6 +2464,9 @@ export function mapearEstadoCloudflare(estado: string): EstadoVideo {
     case 'downloading':
       return 'procesando'
     default:
+      // Cualquier estado que no conocemos se marca en error a propósito. Un
+      // video colgado en "procesando" para siempre no se lo queja nadie; uno
+      // en error, sí.
       return 'error'
   }
 }
@@ -2470,6 +2489,14 @@ Esperado: PASA.
 
 - [ ] **Paso 5: Escribir la Edge Function**
 
+> **CORS no es opcional acá.** La Tarea 12 llama a esta función con
+> `supabase.functions.invoke()` desde un componente cliente, o sea desde el
+> navegador, y eso manda antes un preflight `OPTIONS`. Una función que conteste
+> 405 a todo lo que no sea POST rechaza ese preflight y la subida no funciona
+> nunca. Peor: el error que ve el usuario no menciona CORS por ningún lado.
+> Ojo al probarlo local, que el runtime de Supabase contesta el `OPTIONS` por
+> su cuenta y tapa el problema; desplegada, no.
+
 `supabase/functions/video-subir/index.ts`:
 ```ts
 import { createClient } from 'jsr:@supabase/supabase-js@2'
@@ -2477,13 +2504,28 @@ import { createClient } from 'jsr:@supabase/supabase-js@2'
 const CUENTA = Deno.env.get('CLOUDFLARE_ACCOUNT_ID')!
 const TOKEN = Deno.env.get('CLOUDFLARE_STREAM_TOKEN')!
 
+// El panel llama a esta función con supabase.functions.invoke() desde un
+// componente cliente, o sea desde el navegador. Eso manda antes un preflight
+// OPTIONS: si no se contesta, la subida falla y el error que ve el usuario no
+// menciona CORS por ningún lado.
+//
+// Origin '*' no abre nada acá: la función exige un Bearer del usuario, y ese
+// token vive en el origen del panel, al que una página ajena no llega.
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+}
+
+const responder = (cuerpo: string, status: number) =>
+  new Response(cuerpo, { status, headers: CORS })
+
 Deno.serve(async (peticion) => {
-  if (peticion.method !== 'POST') {
-    return new Response('Método no permitido', { status: 405 })
-  }
+  if (peticion.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS })
+  if (peticion.method !== 'POST') return responder('Método no permitido', 405)
 
   const autorizacion = peticion.headers.get('Authorization')
-  if (!autorizacion) return new Response('Falta autenticación', { status: 401 })
+  if (!autorizacion) return responder('Falta autenticación', 401)
 
   // Cliente con el token de quien llama: hereda sus permisos y su RLS.
   const supabase = createClient(
@@ -2493,40 +2535,53 @@ Deno.serve(async (peticion) => {
   )
 
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return new Response('Sesión inválida', { status: 401 })
+  if (!user) return responder('Sesión inválida', 401)
 
   // limit(1) y no single(): una persona puede pertenecer a varios gimnasios.
   const { data: membresia } = await supabase
     .from('memberships').select('id, gym_id, rol').eq('user_id', user.id)
     .order('created_at').limit(1).maybeSingle()
 
+  // Este chequeo de rol duplica lo que ya hace RLS en el insert de más abajo,
+  // y acá la duplicación es a propósito: sin él le pediríamos a Cloudflare una
+  // URL de subida para alguien que después no va a poder registrar el video,
+  // y esa URL quedaría colgada. La autoridad sigue siendo RLS; esto es solo
+  // para no gastar al pedo.
   if (!membresia || !['entrenador', 'admin'].includes(membresia.rol)) {
-    return new Response('No tenés permiso para subir videos', { status: 403 })
+    return responder('No tenés permiso para subir videos', 403)
   }
 
   // Pedirle a Cloudflare una URL de subida de un solo uso.
-  const respuesta = await fetch(
-    `https://api.cloudflare.com/client/v4/accounts/${CUENTA}/stream/direct_upload`,
-    {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${TOKEN}`,
-        'Content-Type': 'application/json',
+  let cuerpo: { success?: boolean; errors?: unknown; result?: { uid: string; uploadURL: string } }
+  try {
+    const respuesta = await fetch(
+      `https://api.cloudflare.com/client/v4/accounts/${CUENTA}/stream/direct_upload`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          maxDurationSeconds: 300,
+          // Sin esto, el video queda accesible con su URL pública para
+          // cualquiera que la tenga. Es lo que impide que el contenido del
+          // gimnasio circule por WhatsApp.
+          requireSignedURLs: true,
+        }),
       },
-      body: JSON.stringify({
-        maxDurationSeconds: 300,
-        // Sin esto, el video queda accesible con su URL pública para
-        // cualquiera que la tenga. Es lo que impide que el contenido del
-        // gimnasio circule por WhatsApp.
-        requireSignedURLs: true,
-      }),
-    },
-  )
+    )
+    cuerpo = await respuesta.json()
+  } catch (e) {
+    // Cloudflare caído, sin red, o el JSON no se pudo leer. Sin este catch la
+    // función revienta con un 500 sin cuerpo y el panel no sabe qué mostrar.
+    console.error('No se pudo hablar con Cloudflare', e)
+    return responder('No pudimos preparar la subida', 502)
+  }
 
-  const cuerpo = await respuesta.json()
-  if (!cuerpo.success) {
+  if (!cuerpo.success || !cuerpo.result) {
     console.error('Cloudflare rechazó la subida', cuerpo.errors)
-    return new Response('No pudimos preparar la subida', { status: 502 })
+    return responder('No pudimos preparar la subida', 502)
   }
 
   const { uid, uploadURL } = cuerpo.result
@@ -2543,11 +2598,15 @@ Deno.serve(async (peticion) => {
     .single()
 
   if (error) {
+    // Acá ya se pidió la URL a Cloudflare, así que queda un direct_upload
+    // huérfano que nadie va a usar. Caducan solos, y el chequeo de rol de
+    // arriba hace que este camino sea raro. Si algún día molesta, se limpia
+    // con DELETE /stream/{uid}.
     console.error('No se pudo registrar el video', error)
-    return new Response('No pudimos registrar el video', { status: 500 })
+    return responder('No pudimos registrar el video', 500)
   }
 
-  return Response.json({ videoId: video.id, uploadUrl: uploadURL })
+  return Response.json({ videoId: video.id, uploadUrl: uploadURL }, { headers: CORS })
 })
 ```
 
@@ -2577,6 +2636,25 @@ curl -X POST http://127.0.0.1:54321/functions/v1/video-subir \
   -H "Authorization: Bearer <access_token>"
 ```
 Esperado: `{"videoId":"...","uploadUrl":"https://upload.cloudflarestream.com/..."}`
+
+> **Sin cuenta de Cloudflare todavía se prueba casi todo.** Poné valores de
+> relleno en `supabase/functions/.env` y verificá:
+>
+> | Caso | Esperado |
+> |---|---|
+> | `GET` | 405 |
+> | `POST` sin `Authorization` | 401 |
+> | `POST` como `socio` | 403 |
+> | `POST` como `admin` | **502** |
+> | filas en `videos` después | **0** |
+>
+> El 502 es la buena noticia: significa que pasó autenticación y rol y falló
+> justo donde tenía que fallar, en Cloudflare. Y que `videos` quede vacía
+> confirma que un rechazo no deja el registro a medio crear.
+>
+> Lo único que queda sin probar es el camino feliz: que con credenciales reales
+> devuelva `{ videoId, uploadUrl }`. Al `curl` le hace falta también
+> `-H "apikey: <anon key>"`, si no lo frena el gateway antes de la función.
 
 - [ ] **Paso 8: Commit**
 
