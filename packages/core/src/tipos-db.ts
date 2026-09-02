@@ -34,6 +34,77 @@ export type Database = {
   }
   public: {
     Tables: {
+      ejercicios: {
+        Row: {
+          creado_por: string | null
+          created_at: string
+          descripcion: string | null
+          equipamiento: Database["public"]["Enums"]["tipo_equipamiento"]
+          grupo_muscular: Database["public"]["Enums"]["grupo_muscular"]
+          gym_id: string | null
+          id: string
+          instrucciones: string | null
+          maquina_id: string | null
+          nombre: string
+          video_id: string | null
+        }
+        Insert: {
+          creado_por?: string | null
+          created_at?: string
+          descripcion?: string | null
+          equipamiento: Database["public"]["Enums"]["tipo_equipamiento"]
+          grupo_muscular: Database["public"]["Enums"]["grupo_muscular"]
+          gym_id?: string | null
+          id?: string
+          instrucciones?: string | null
+          maquina_id?: string | null
+          nombre: string
+          video_id?: string | null
+        }
+        Update: {
+          creado_por?: string | null
+          created_at?: string
+          descripcion?: string | null
+          equipamiento?: Database["public"]["Enums"]["tipo_equipamiento"]
+          grupo_muscular?: Database["public"]["Enums"]["grupo_muscular"]
+          gym_id?: string | null
+          id?: string
+          instrucciones?: string | null
+          maquina_id?: string | null
+          nombre?: string
+          video_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ejercicio_maquina_del_mismo_gym"
+            columns: ["maquina_id", "gym_id"]
+            isOneToOne: false
+            referencedRelation: "maquinas"
+            referencedColumns: ["id", "gym_id"]
+          },
+          {
+            foreignKeyName: "ejercicios_creado_por_fkey"
+            columns: ["creado_por"]
+            isOneToOne: false
+            referencedRelation: "memberships"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ejercicios_gym_id_fkey"
+            columns: ["gym_id"]
+            isOneToOne: false
+            referencedRelation: "gyms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ejercicios_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "videos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       gyms: {
         Row: {
           activo: boolean
@@ -66,6 +137,47 @@ export type Database = {
           zona_horaria?: string
         }
         Relationships: []
+      }
+      maquinas: {
+        Row: {
+          cantidad: number
+          created_at: string
+          foto_url: string | null
+          gym_id: string
+          id: string
+          marca: string | null
+          nombre: string
+          notas: string | null
+        }
+        Insert: {
+          cantidad?: number
+          created_at?: string
+          foto_url?: string | null
+          gym_id: string
+          id?: string
+          marca?: string | null
+          nombre: string
+          notas?: string | null
+        }
+        Update: {
+          cantidad?: number
+          created_at?: string
+          foto_url?: string | null
+          gym_id?: string
+          id?: string
+          marca?: string | null
+          nombre?: string
+          notas?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "maquinas_gym_id_fkey"
+            columns: ["gym_id"]
+            isOneToOne: false
+            referencedRelation: "gyms"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       memberships: {
         Row: {
@@ -148,16 +260,95 @@ export type Database = {
         }
         Relationships: []
       }
+      videos: {
+        Row: {
+          created_at: string
+          duracion_seg: number | null
+          error_detalle: string | null
+          estado: Database["public"]["Enums"]["estado_video"]
+          gym_id: string | null
+          id: string
+          stream_uid: string
+          subido_por: string | null
+          thumbnail_url: string | null
+        }
+        Insert: {
+          created_at?: string
+          duracion_seg?: number | null
+          error_detalle?: string | null
+          estado?: Database["public"]["Enums"]["estado_video"]
+          gym_id?: string | null
+          id?: string
+          stream_uid: string
+          subido_por?: string | null
+          thumbnail_url?: string | null
+        }
+        Update: {
+          created_at?: string
+          duracion_seg?: number | null
+          error_detalle?: string | null
+          estado?: Database["public"]["Enums"]["estado_video"]
+          gym_id?: string | null
+          id?: string
+          stream_uid?: string
+          subido_por?: string | null
+          thumbnail_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "videos_gym_id_fkey"
+            columns: ["gym_id"]
+            isOneToOne: false
+            referencedRelation: "gyms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "videos_subido_por_fkey"
+            columns: ["subido_por"]
+            isOneToOne: false
+            referencedRelation: "memberships"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      mi_rol: {
+        Args: { p_gym_id: string }
+        Returns: Database["public"]["Enums"]["rol_membresia"]
+      }
+      mis_gyms: { Args: never; Returns: string[] }
+      soy_superadmin: { Args: never; Returns: boolean }
     }
     Enums: {
       estado_membresia: "activo" | "inactivo"
+      estado_video: "procesando" | "listo" | "error"
+      grupo_muscular:
+        | "pecho"
+        | "espalda"
+        | "hombros"
+        | "biceps"
+        | "triceps"
+        | "cuadriceps"
+        | "isquiotibiales"
+        | "gluteos"
+        | "gemelos"
+        | "abdominales"
+        | "antebrazo"
+        | "cuerpo_completo"
       rol_membresia: "socio" | "entrenador" | "admin"
+      tipo_equipamiento:
+        | "barra"
+        | "mancuerna"
+        | "maquina"
+        | "polea"
+        | "kettlebell"
+        | "banda"
+        | "peso_corporal"
+        | "otro"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -289,7 +480,32 @@ export const Constants = {
   public: {
     Enums: {
       estado_membresia: ["activo", "inactivo"],
+      estado_video: ["procesando", "listo", "error"],
+      grupo_muscular: [
+        "pecho",
+        "espalda",
+        "hombros",
+        "biceps",
+        "triceps",
+        "cuadriceps",
+        "isquiotibiales",
+        "gluteos",
+        "gemelos",
+        "abdominales",
+        "antebrazo",
+        "cuerpo_completo",
+      ],
       rol_membresia: ["socio", "entrenador", "admin"],
+      tipo_equipamiento: [
+        "barra",
+        "mancuerna",
+        "maquina",
+        "polea",
+        "kettlebell",
+        "banda",
+        "peso_corporal",
+        "otro",
+      ],
     },
   },
 } as const

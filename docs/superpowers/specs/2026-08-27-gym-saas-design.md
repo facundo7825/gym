@@ -106,6 +106,19 @@ El `revoke` va primero y es obligatorio: PostgreSQL **suma** privilegios, así q
 
 Regla general que se sigue de esto: **cada vez que se agregue una columna que otorgue poder** —un rol, un estado de cuenta, un límite— hay que preguntarse quién tiene `update` sobre su tabla, y si la respuesta incluye al propio usuario, restringir por columna. Vale para `memberships.rol` y para cualquier columna equivalente que aparezca más adelante.
 
+**RLS tampoco valida referencias entre gimnasios.** Una clave foránea común a `maquinas(id)` deja que un ejercicio del gimnasio A apunte a una máquina del B: la política de `ejercicios` mira el `gym_id` de la fila que se escribe, no a dónde apunta. RLS decide visibilidad; esto es integridad, y son cosas distintas. Se cierra metiendo el `gym_id` en la clave foránea:
+
+```sql
+-- en maquinas
+unique (id, gym_id)
+
+-- en ejercicios
+foreign key (maquina_id, gym_id) references maquinas (id, gym_id)
+  on delete set null (maquina_id)
+```
+
+Regla general: **toda clave foránea entre dos tablas que tienen `gym_id` lleva el `gym_id` adentro.** Si no, la base acepta referencias cruzadas entre gimnasios y RLS no se entera.
+
 ---
 
 ## 5. Modelo de datos
@@ -428,6 +441,7 @@ Descartado a propósito, con el motivo:
 |---|---|
 | Fuga de datos entre gimnasios | RLS en la base + tests de aislamiento obligatorios en cada cambio |
 | Escalada de privilegios por una columna que RLS no puede proteger | Grants por columna sobre toda columna que otorgue poder, y un test por cada política de escritura. Una política sin test es una política que nadie sabe si funciona |
+| Referencia cruzada entre gimnasios que RLS no ve | Toda clave foránea entre tablas con `gym_id` incluye el `gym_id`, con su test |
 | Filtración de videos de un gimnasio | URLs firmadas de vida corta, nunca URLs públicas |
 | Sin señal dentro del gimnasio | Escritura local primero y cola de sincronización |
 | Un gimnasio nuevo arranca con la app vacía | Catálogo global de ejercicios precargado |

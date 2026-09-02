@@ -1491,7 +1491,10 @@ create table maquinas (
   foto_url    text,
   cantidad    integer not null default 1 check (cantidad > 0),
   notas       text,
-  created_at  timestamptz not null default now()
+  created_at  timestamptz not null default now(),
+  -- Redundante con la clave primaria, pero necesaria: es el destino de la
+  -- clave foránea compuesta de `ejercicios` de más abajo.
+  unique (id, gym_id)
 );
 
 create index maquinas_gym_id_idx on maquinas (gym_id);
@@ -1524,7 +1527,7 @@ create table ejercicios (
   instrucciones   text,
   grupo_muscular  grupo_muscular not null,
   equipamiento    tipo_equipamiento not null,
-  maquina_id      uuid references maquinas(id) on delete set null,
+  maquina_id      uuid,
   video_id        uuid references videos(id) on delete set null,
   creado_por      uuid references memberships(id) on delete set null,
   created_at      timestamptz not null default now()
@@ -1537,6 +1540,21 @@ create index ejercicios_grupo_idx   on ejercicios (grupo_muscular);
 -- algún gimnasio concreto.
 alter table ejercicios add constraint ejercicio_global_sin_maquina
   check (gym_id is not null or maquina_id is null);
+
+-- La máquina tiene que ser del MISMO gimnasio que el ejercicio. Una FK a
+-- maquinas(id) a secas dejaría que un ejercicio del gimnasio A apunte a una
+-- máquina del B: RLS no lo impide, porque es un problema de integridad y no
+-- de visibilidad. Al incluir gym_id en la FK, lo garantiza la base.
+--
+-- Con maquina_id nulo la restricción no se evalúa (MATCH SIMPLE), que es
+-- justo lo que hace falta para los ejercicios globales.
+--
+-- `set null (maquina_id)` nombra la columna a propósito: sin esa lista,
+-- borrar una máquina intentaría anular también gym_id, que es NOT NULL en
+-- los ejercicios de un gimnasio. Requiere PostgreSQL 15+.
+alter table ejercicios add constraint ejercicio_maquina_del_mismo_gym
+  foreign key (maquina_id, gym_id) references maquinas (id, gym_id)
+  on delete set null (maquina_id);
 ```
 
 - [ ] **Paso 2: Escribir las políticas**
@@ -1554,8 +1572,15 @@ create policy maquinas_leer on maquinas for select
 create policy maquinas_crear on maquinas for insert
   with check (mi_rol(gym_id) in ('entrenador', 'admin'));
 
+-- El `with check` va explícito en las tres políticas de UPDATE de abajo.
+-- Si se omite, PostgreSQL reutiliza el `using` para la fila nueva y el
+-- resultado es el mismo, pero esa equivalencia es implícita: alcanza con que
+-- alguien agregue un `with check` distinto por otro motivo para abrir, sin
+-- darse cuenta, la posibilidad de mudar una fila a otro gimnasio. Escrito,
+-- no se pierde.
 create policy maquinas_editar on maquinas for update
-  using (mi_rol(gym_id) in ('entrenador', 'admin'));
+  using (mi_rol(gym_id) in ('entrenador', 'admin'))
+  with check (mi_rol(gym_id) in ('entrenador', 'admin'));
 
 -- Videos: los globales los ve todo el mundo; los del gimnasio, solo su gente.
 create policy videos_leer on videos for select
@@ -1565,7 +1590,8 @@ create policy videos_crear on videos for insert
   with check (gym_id is not null and mi_rol(gym_id) in ('entrenador', 'admin'));
 
 create policy videos_editar on videos for update
-  using (gym_id is not null and mi_rol(gym_id) in ('entrenador', 'admin'));
+  using (gym_id is not null and mi_rol(gym_id) in ('entrenador', 'admin'))
+  with check (gym_id is not null and mi_rol(gym_id) in ('entrenador', 'admin'));
 
 -- Ejercicios: idéntico criterio.
 -- Ojo con el `gym_id is not null` del insert: impide que un gimnasio se
@@ -1578,7 +1604,19 @@ create policy ejercicios_crear on ejercicios for insert
   with check (gym_id is not null and mi_rol(gym_id) in ('entrenador', 'admin'));
 
 create policy ejercicios_editar on ejercicios for update
-  using (gym_id is not null and mi_rol(gym_id) in ('entrenador', 'admin'));
+  using (gym_id is not null and mi_rol(gym_id) in ('entrenador', 'admin'))
+  with check (gym_id is not null and mi_rol(gym_id) in ('entrenador', 'admin'));
+
+-- Ninguna de las tres tablas define política de DELETE, así que con RLS
+-- activa el borrado queda denegado para todos. Es deliberado: el historial
+-- de un socio apunta a estos ejercicios, y borrarlos dejaría huecos. Si más
+-- adelante hace falta dar de baja algo, va por una columna `archivado`, no
+-- por un delete. `service_role` sigue pudiendo borrar para tareas de
+-- mantenimiento.
+--
+-- Tampoco hay rama `or soy_superadmin()` en ninguna: el superadmin
+-- administra la plataforma —gimnasios y membresías—, no el contenido de
+-- cada gimnasio. Que no pueda leer los ejercicios ajenos es la intención.
 ```
 
 - [ ] **Paso 3: Escribir los tests de aislamiento**
@@ -1592,15 +1630,22 @@ describe('aislamiento de ejercicios, máquinas y videos', () => {
   let e: Escenario
   let ejercicioDeB: string
   let maquinaDeB: string
+  let maquinaDeA: string
 
   beforeAll(async () => {
     e = await crearEscenario()
 
-    const { data: maquina } = await admin
+    const { data: maquinaB } = await admin
       .from('maquinas')
       .insert({ gym_id: e.gymB, nombre: 'Prensa Hammer' })
       .select('id').single()
-    maquinaDeB = maquina!.id
+    maquinaDeB = maquinaB!.id
+
+    const { data: maquinaA } = await admin
+      .from('maquinas')
+      .insert({ gym_id: e.gymA, nombre: 'Prensa del gym A' })
+      .select('id').single()
+    maquinaDeA = maquinaA!.id
 
     const { data: ejercicio } = await admin
       .from('ejercicios')
@@ -1636,10 +1681,23 @@ describe('aislamiento de ejercicios, máquinas y videos', () => {
     expect(data).toEqual([])
   })
 
+  it('un socio SÍ ve las máquinas de su propio gimnasio', async () => {
+    const { data } = await e.comoSocioA
+      .from('maquinas').select('id').eq('id', maquinaDeA)
+    expect(data?.map((m) => m.id)).toEqual([maquinaDeA])
+  })
+
   it('un socio NO puede crear ejercicios ni en su propio gimnasio', async () => {
     const { error } = await e.comoSocioA.from('ejercicios').insert({
       gym_id: e.gymA, nombre: 'Inventado',
       grupo_muscular: 'pecho', equipamiento: 'barra',
+    })
+    expect(error).not.toBeNull()
+  })
+
+  it('un socio NO puede crear máquinas', async () => {
+    const { error } = await e.comoSocioA.from('maquinas').insert({
+      gym_id: e.gymA, nombre: 'Máquina inventada',
     })
     expect(error).not.toBeNull()
   })
@@ -1667,6 +1725,71 @@ describe('aislamiento de ejercicios, máquinas y videos', () => {
     })
     expect(error).not.toBeNull()
   })
+
+  // Alcance de este test, para no leerle de más: comprueba el comportamiento
+  // observable a través de PostgREST, que es como entran las apps. NO aísla
+  // el `with check` de la política: se comprobó que PostgREST rechaza el
+  // update igual —la fila deja de ser visible después— aunque la política
+  // tenga `with check (true)`. La garantía a nivel SQL la da el `with check`
+  // explícito de 0004_rls_ejercicios.sql, verificado aparte con psql.
+  it('un admin NO puede mudar un ejercicio suyo a otro gimnasio', async () => {
+    const { data: mio } = await e.comoAdminA
+      .from('ejercicios')
+      .insert({
+        gym_id: e.gymA, nombre: 'Para intentar mudarlo',
+        grupo_muscular: 'espalda', equipamiento: 'barra',
+      })
+      .select('id').single()
+
+    const { error } = await e.comoAdminA
+      .from('ejercicios')
+      .update({ gym_id: e.gymB })
+      .eq('id', mio!.id)
+    expect(error).not.toBeNull()
+
+    // Y la fila quedó donde estaba.
+    const { data: despues } = await admin
+      .from('ejercicios').select('gym_id').eq('id', mio!.id).single()
+    expect(despues!.gym_id).toBe(e.gymA)
+  })
+
+  // Esto no lo cubre RLS: es la clave foránea compuesta (maquina_id, gym_id).
+  it('un ejercicio NO puede apuntar a una máquina de otro gimnasio', async () => {
+    const { error } = await e.comoAdminA.from('ejercicios').insert({
+      gym_id: e.gymA, nombre: 'Con máquina ajena',
+      grupo_muscular: 'cuadriceps', equipamiento: 'maquina',
+      maquina_id: maquinaDeB,
+    })
+    expect(error).not.toBeNull()
+  })
+
+  it('un ejercicio SÍ puede apuntar a una máquina de su gimnasio', async () => {
+    const { error } = await e.comoAdminA.from('ejercicios').insert({
+      gym_id: e.gymA, nombre: 'Con máquina propia',
+      grupo_muscular: 'cuadriceps', equipamiento: 'maquina',
+      maquina_id: maquinaDeA,
+    })
+    expect(error).toBeNull()
+  })
+
+  // Ninguna de las tres tablas define política de DELETE, y con RLS activa
+  // eso significa denegado para todos. Sin test, nadie se entera si alguien
+  // agrega una política de borrado sin pensarla.
+  it('ni siquiera un admin puede borrar ejercicios', async () => {
+    const { data: mio } = await e.comoAdminA
+      .from('ejercicios')
+      .insert({
+        gym_id: e.gymA, nombre: 'Para intentar borrarlo',
+        grupo_muscular: 'gemelos', equipamiento: 'peso_corporal',
+      })
+      .select('id').single()
+
+    await e.comoAdminA.from('ejercicios').delete().eq('id', mio!.id)
+
+    const { data: sigue } = await admin
+      .from('ejercicios').select('id').eq('id', mio!.id)
+    expect(sigue?.map((x) => x.id)).toEqual([mio!.id])
+  })
 })
 ```
 
@@ -1675,7 +1798,16 @@ describe('aislamiento de ejercicios, máquinas y videos', () => {
 ```bash
 npm run db:reset && npm run test:rls
 ```
-Esperado: PASAN los 8 de identidad y los 7 nuevos.
+Esperado: 26 en verde — 13 de identidad y 13 nuevos.
+
+Y como pide la Tarea 4, comprobá que los tests sirven de verdad: rompé a mano
+la FK compuesta y confirmá que falla el test de la máquina ajena.
+
+> **Un límite que conviene saber.** El test de "no puede mudar un ejercicio a
+> otro gimnasio" pasa aunque le pongas `with check (true)` a la política:
+> PostgREST rechaza igual el update porque la fila deja de ser visible después.
+> La garantía a nivel SQL la da el `with check` explícito, y para verla hay que
+> salir de PostgREST y probar con psql haciendo `set role authenticated`.
 
 - [ ] **Paso 5: Regenerar los tipos**
 
