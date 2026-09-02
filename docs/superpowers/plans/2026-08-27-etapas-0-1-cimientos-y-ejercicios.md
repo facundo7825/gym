@@ -6,7 +6,7 @@
 
 **Arquitectura:** Monorepo con npm workspaces. Toda la seguridad multi-gimnasio vive en PostgreSQL mediante Row Level Security, no en el código de las apps. Los videos se suben desde el navegador directo a Cloudflare Stream usando una URL de subida de un solo uso emitida por una Edge Function, y se reproducen con URLs firmadas de vida corta.
 
-**Stack:** Expo (React Native) · Next.js 15 (App Router) · Supabase (PostgreSQL) · Cloudflare Stream · TypeScript · Vitest
+**Stack:** Expo (React Native) · Next.js 16 (App Router) · Supabase (PostgreSQL) · Cloudflare Stream · TypeScript · Vitest
 
 **Spec:** `docs/superpowers/specs/2026-08-27-gym-saas-design.md`
 
@@ -60,7 +60,7 @@ gym/
 │       └── video.test.ts
 ├── apps/panel/                        Next.js
 │   └── src/
-│       ├── middleware.ts              refresca sesión y protege rutas
+│       ├── proxy.ts                   refresca sesión y protege rutas
 │       ├── lib/supabase/navegador.ts
 │       ├── lib/supabase/servidor.ts
 │       └── app/
@@ -864,7 +864,7 @@ git commit -m "Agregar RLS de identidad con tests de aislamiento entre gimnasios
 ### Tarea 5: Autenticación en el panel web
 
 **Archivos:**
-- Crear: `apps/panel/` (Next.js), `apps/panel/src/lib/supabase/navegador.ts`, `apps/panel/src/lib/supabase/servidor.ts`, `apps/panel/src/middleware.ts`, `apps/panel/src/app/login/page.tsx`, `apps/panel/src/app/(panel)/layout.tsx`, `apps/panel/src/app/(panel)/page.tsx`
+- Crear: `apps/panel/` (Next.js), `apps/panel/src/lib/supabase/navegador.ts`, `apps/panel/src/lib/supabase/servidor.ts`, `apps/panel/src/proxy.ts`, `apps/panel/src/app/login/page.tsx`, `apps/panel/src/app/(panel)/layout.tsx`, `apps/panel/src/app/(panel)/page.tsx`
 
 **Interfaces:**
 - Consume: `@gym/core` (`Database`, `puede`), tablas y RLS de las Tareas 3 y 4
@@ -876,10 +876,22 @@ git commit -m "Agregar RLS de identidad con tests de aislamiento entre gimnasios
 - [ ] **Paso 1: Crear la app**
 
 ```bash
-npx create-next-app@latest apps/panel --typescript --tailwind --eslint --app --src-dir --import-alias "@/*" --no-turbopack
-npm install --workspace apps/panel @supabase/supabase-js @supabase/ssr
-npm install --workspace apps/panel @gym/core@*
+mkdir -p apps   # create-next-app falla con "path is not writable" si el directorio padre no existe
+npx create-next-app@latest apps/panel --typescript --tailwind --eslint --app --src-dir --import-alias "@/*" --use-npm --skip-install --disable-git --yes
+
+# El workspace es nuevo: sin este install de raíz npm no lo registra y el
+# filtro --workspace se ignora en silencio ("no workspace folder present").
+npm install
+npm install --workspace panel @supabase/supabase-js @supabase/ssr @gym/core@*
 ```
+
+> **`--no-turbopack` ya no existe.** En Next 16 Turbopack es el bundler por
+> defecto; para salirse está `--webpack` en `next build`. Y `create-next-app`
+> genera `AGENTS.md` + `CLAUDE.md`: conviene commitearlos, porque `next dev`
+> los reescribe y si no quedan como cambio sin commitear para siempre.
+
+Después, en `src/app/layout.tsx` (el que generó el scaffold) cambiar `lang="en"`
+por `lang="es"` y el `metadata` de "Create Next App" a algo del proyecto.
 
 - [ ] **Paso 2: Configurar el entorno**
 
@@ -925,7 +937,7 @@ export async function crearClienteServidor() {
               almacen.set(name, value, options),
             )
           } catch {
-            // Llamado desde un Server Component: el middleware ya refrescó
+            // Llamado desde un Server Component: el proxy ya refrescó
             // la sesión, así que se puede ignorar sin consecuencias.
           }
         },
@@ -935,14 +947,24 @@ export async function crearClienteServidor() {
 }
 ```
 
-- [ ] **Paso 4: Middleware que refresca sesión y protege rutas**
+- [ ] **Paso 4: Proxy que refresca sesión y protege rutas**
 
-`apps/panel/src/middleware.ts`:
+En Next 16 `middleware.ts` está **deprecado y se llama `proxy.ts`**: mismo
+comportamiento, cambian el nombre del archivo y el del export. Los flags de
+config con `middleware` en el nombre también se renombraron
+(`skipMiddlewareUrlNormalize` → `skipProxyUrlNormalize`).
+
+Y una advertencia que el propio doc de Next hace: **esto no es la barrera de
+autorización.** Un cambio de `matcher` o mover una ruta la deja sin cobertura
+en silencio. Quien decide de verdad es RLS en la base; el layout y cada Server
+Action revalidan con `getUser()` por su cuenta.
+
+`apps/panel/src/proxy.ts`:
 ```ts
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   let respuesta = NextResponse.next({ request })
 
   const supabase = createServerClient(
@@ -1127,7 +1149,8 @@ npm run dev --workspace apps/panel
 insert into gyms (nombre, slug) values ('Gimnasio Prueba', 'prueba')
 returning id;
 ```
-Después, *Authentication* → *Add user* → `admin@prueba.com`. Y con los dos ids:
+Después, *Authentication* → *Add user* → `admin@prueba.com` / `prueba1234`,
+con *Auto Confirm User* tildado (si no, no puede entrar). Y con los dos ids:
 ```sql
 insert into memberships (gym_id, user_id, rol)
 values ('<id del gym>', '<id del usuario>', 'admin');
