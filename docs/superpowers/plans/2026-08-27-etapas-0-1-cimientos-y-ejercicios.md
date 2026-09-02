@@ -1885,14 +1885,20 @@ git commit -m "Agregar semilla con 12 ejercicios del catálogo global"
 ### Tarea 9: Gestión de máquinas en el panel
 
 **Archivos:**
-- Crear: `apps/panel/src/app/(panel)/maquinas/page.tsx`, `apps/panel/src/app/(panel)/maquinas/acciones.ts`
+- Crear: `apps/panel/src/app/(panel)/maquinas/page.tsx`, `apps/panel/src/app/(panel)/maquinas/acciones.ts`, `apps/panel/src/app/(panel)/maquinas/formulario.tsx`
 - Modificar: `apps/panel/src/app/(panel)/layout.tsx` (agregar navegación)
 
 **Interfaces:**
 - Consume: `crearClienteServidor()` (Tarea 5), tabla `maquinas` (Tarea 7)
-- Produce: `crearMaquina(datosFormulario: FormData): Promise<{ error?: string }>` — Server Action
+- Produce: `crearMaquina(estadoPrevio, datosFormulario): Promise<{ error?: string }>` — Server Action pensada para `useActionState`
 
 - [ ] **Paso 1: Escribir la Server Action**
+
+> Una Server Action pasada directo a `<form action={...}>` tiene que devolver
+> `void`: si devuelve algo, TypeScript la rechaza. Un `{ error }` devuelto así
+> no compila, y aunque compilara no llegaría nunca a la pantalla. Por eso la
+> firma lleva el estado previo adelante y el formulario es un componente
+> cliente con `useActionState`, que es lo que hace visible el error.
 
 `apps/panel/src/app/(panel)/maquinas/acciones.ts`:
 ```ts
@@ -1901,7 +1907,15 @@ git commit -m "Agregar semilla con 12 ejercicios del catálogo global"
 import { revalidatePath } from 'next/cache'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 
-export async function crearMaquina(datos: FormData): Promise<{ error?: string }> {
+export type EstadoFormulario = { error?: string }
+
+// La firma con estado previo es la que pide useActionState. Una Server Action
+// pasada directo a <form action> tiene que devolver void, y entonces el
+// { error } no llegaría nunca a la pantalla.
+export async function crearMaquina(
+  _estadoPrevio: EstadoFormulario,
+  datos: FormData,
+): Promise<EstadoFormulario> {
   const nombre = String(datos.get('nombre') ?? '').trim()
   const marca = String(datos.get('marca') ?? '').trim()
   const cantidad = Number(datos.get('cantidad') ?? 1)
@@ -1942,7 +1956,7 @@ export async function crearMaquina(datos: FormData): Promise<{ error?: string }>
 `apps/panel/src/app/(panel)/maquinas/page.tsx`:
 ```tsx
 import { crearClienteServidor } from '@/lib/supabase/servidor'
-import { crearMaquina } from './acciones'
+import { FormularioMaquina } from './formulario'
 
 export default async function Maquinas() {
   const supabase = await crearClienteServidor()
@@ -1955,17 +1969,7 @@ export default async function Maquinas() {
     <div className="space-y-8">
       <h1 className="text-2xl font-semibold">Máquinas</h1>
 
-      <form action={crearMaquina} className="flex flex-wrap gap-2">
-        <input name="nombre" placeholder="Nombre" required
-          className="rounded border px-3 py-2" />
-        <input name="marca" placeholder="Marca (opcional)"
-          className="rounded border px-3 py-2" />
-        <input name="cantidad" type="number" min={1} defaultValue={1}
-          className="w-24 rounded border px-3 py-2" />
-        <button type="submit" className="rounded bg-black px-4 py-2 text-white">
-          Agregar
-        </button>
-      </form>
+      <FormularioMaquina />
 
       {maquinas?.length ? (
         <ul className="divide-y rounded border">
@@ -1987,16 +1991,56 @@ export default async function Maquinas() {
 }
 ```
 
+- [ ] **Paso 2b: Escribir el formulario (componente cliente)**
+
+`apps/panel/src/app/(panel)/maquinas/formulario.tsx`:
+```tsx
+'use client'
+
+import { useActionState } from 'react'
+import { crearMaquina, type EstadoFormulario } from './acciones'
+
+const INICIAL: EstadoFormulario = {}
+
+export function FormularioMaquina() {
+  const [estado, accion, pendiente] = useActionState(crearMaquina, INICIAL)
+
+  return (
+    <div className="space-y-2">
+      <form action={accion} className="flex flex-wrap gap-2">
+        <input name="nombre" placeholder="Nombre" required
+          className="rounded border px-3 py-2" />
+        <input name="marca" placeholder="Marca (opcional)"
+          className="rounded border px-3 py-2" />
+        <input name="cantidad" type="number" min={1} defaultValue={1}
+          className="w-24 rounded border px-3 py-2" />
+        <button type="submit" disabled={pendiente}
+          className="rounded bg-black px-4 py-2 text-white disabled:opacity-50">
+          {pendiente ? 'Guardando…' : 'Agregar'}
+        </button>
+      </form>
+
+      {estado.error && (
+        <p role="alert" className="text-sm text-red-600">{estado.error}</p>
+      )}
+    </div>
+  )
+}
+```
+
 - [ ] **Paso 3: Agregar el enlace en la barra lateral**
 
 En `apps/panel/src/app/(panel)/layout.tsx`, dentro del `<aside>`, después del bloque del nombre:
 ```tsx
 <nav className="mt-6 flex flex-col gap-1 text-sm">
-  <a href="/" className="rounded px-2 py-1 hover:bg-gray-100">Inicio</a>
-  <a href="/maquinas" className="rounded px-2 py-1 hover:bg-gray-100">Máquinas</a>
-  <a href="/ejercicios" className="rounded px-2 py-1 hover:bg-gray-100">Ejercicios</a>
+  <Link href="/" className="rounded px-2 py-1 hover:bg-gray-100">Inicio</Link>
+  <Link href="/maquinas" className="rounded px-2 py-1 hover:bg-gray-100">Máquinas</Link>
+  <Link href="/ejercicios" className="rounded px-2 py-1 hover:bg-gray-100">Ejercicios</Link>
 </nav>
 ```
+
+Y arriba del archivo, `import Link from 'next/link'`. Con `<a>` cada clic
+recarga la página entera y se pierde la navegación del lado del cliente.
 
 - [ ] **Paso 4: Probar a mano**
 
@@ -2006,6 +2050,9 @@ Con `npm run dev --workspace apps/panel`, entrando como `admin@prueba.com`:
 2. Agregar "Prensa 45°", marca "Hammer", cantidad 2 → aparece en la lista.
 3. Agregar sin nombre → el navegador lo bloquea por `required`.
 4. Recargar la página → la máquina sigue ahí.
+5. Entrar con un usuario de rol `socio` y probar el alta → tiene que aparecer
+   "No pudimos guardar la máquina". La acción no chequea el rol a propósito:
+   lo rechaza RLS, y así hay una sola autoridad y no dos que se desincronizan.
 
 - [ ] **Paso 5: Commit**
 

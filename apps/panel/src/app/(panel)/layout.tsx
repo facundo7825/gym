@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 
@@ -38,6 +39,12 @@ export default async function LayoutPanel({
         <p className="text-sm text-gray-600">
           {membresia.profiles?.nombre} · {membresia.rol}
         </p>
+
+        <nav className="mt-6 flex flex-col gap-1 text-sm">
+          <Link href="/" className="rounded px-2 py-1 hover:bg-gray-100">Inicio</Link>
+          <Link href="/maquinas" className="rounded px-2 py-1 hover:bg-gray-100">Máquinas</Link>
+          <Link href="/ejercicios" className="rounded px-2 py-1 hover:bg-gray-100">Ejercicios</Link>
+        </nav>
       </aside>
       <main className="flex-1 p-8">{children}</main>
     </div>
