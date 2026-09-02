@@ -8,19 +8,9 @@ export default defineConfig({
     fileParallelism: false,
     testTimeout: 30_000,
     setupFiles: ['./tests/setup.ts'],
-    // Fijado explícito: execArgv de abajo solo aplica al pool 'forks'. Si
-    // alguien corre con --pool=threads o un futuro Vitest cambia el default,
-    // el flag deja de aplicarse en silencio y vuelve el error de WebSocket.
-    pool: 'forks',
-    poolOptions: {
-      forks: {
-        // supabase-js construye un cliente de Realtime al construirse
-        // (createClient()), y eso exige WebSocket global. Node 20 solo lo
-        // expone detrás de este flag. Va acá y no en NODE_OPTIONS del script
-        // para que funcione igual en Windows, Linux y CI: `set VAR=x&&` es
-        // sintaxis solo de cmd.exe.
-        execArgv: ['--experimental-websocket'],
-      },
-    },
+    // Acá vivía un pool 'forks' con execArgv: ['--experimental-websocket'].
+    // supabase-js arma un cliente de Realtime al construirse y eso exige un
+    // WebSocket global, que Node 20 solo exponía detrás de ese flag. Desde
+    // Node 22 es nativo, y el motor mínimo está fijado en package.json.
   },
 })

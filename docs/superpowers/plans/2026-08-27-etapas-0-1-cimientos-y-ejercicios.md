@@ -16,7 +16,11 @@
 
 Aplican a **todas** las tareas de este plan:
 
-- **Node 20+**, npm 10+. El repo ya está en `main` con la spec commiteada.
+- **Node 22+**, npm 10+. Probado en Node 24 LTS. El piso lo impone
+  `@supabase/supabase-js`: en Node 20 no hay `WebSocket` global y el cliente
+  revienta al construirse, porque arma un cliente de Realtime aunque no lo uses.
+  Está fijado en `engines` del `package.json` de raíz. El repo ya está en `main`
+  con la spec commiteada.
 - **TypeScript en modo `strict`** en los tres paquetes. Nada de `any` sin un comentario que lo justifique.
 - **Todo el texto visible al usuario va en castellano.** Nombres de tablas, columnas, funciones y variables también en castellano (`ejercicios`, `mis_gyms`, `puede`). Excepto lo que impone una librería.
 - **Toda tabla nueva lleva `gym_id`** (salvo `profiles`, que es la persona, y las tablas donde `gym_id` nulo significa "global": `videos` y `ejercicios`).
@@ -124,6 +128,7 @@ Al terminar la Parte A no hay ninguna pantalla del producto, y eso es esperable.
   "name": "gym",
   "private": true,
   "workspaces": ["apps/*", "packages/*"],
+  "engines": { "node": ">=22" },
   "scripts": {
     "db:start": "supabase start",
     "db:stop": "supabase stop",
@@ -234,6 +239,25 @@ Primera pieza de lógica compartida, y la excusa para dejar Vitest andando.
   "devDependencies": { "vitest": "^3.0.0", "typescript": "^5.7.0" }
 }
 ```
+
+`packages/core/vitest.config.ts`:
+```ts
+import { defineConfig } from 'vitest/config'
+
+// Sin esta config propia, vitest sube buscando una y termina heredando la de
+// la raíz, que es la de los tests de RLS: su `setupFiles: ['./tests/setup.ts']`
+// resuelve contra este paquete y falla con "Cannot find module". Los tests de
+// `core` son puros: no necesitan base ni setup.
+export default defineConfig({
+  test: {
+    include: ['tests/**/*.test.ts'],
+  },
+})
+```
+
+> El archivo de raíz se crea recién en la Tarea 4, así que mientras tanto esto
+> parece de más. No lo es: sin él, `npm run test:core` se rompe en cuanto
+> aparece aquel, y el síntoma no señala para nada a este paquete.
 
 `packages/core/tsconfig.json`:
 ```json
