@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { Stack, useLocalSearchParams } from 'expo-router'
+import { useEventListener } from 'expo'
 import { useVideoPlayer, VideoView } from 'expo-video'
+import { FunctionsHttpError } from '@supabase/supabase-js'
 import { etiqueta, type Equipamiento, type GrupoMuscular } from '@gym/core'
 import { supabase } from '@/lib/supabase'
 
@@ -36,29 +38,70 @@ export default function DetalleEjercicio() {
   const [urlVideo, setUrlVideo] = useState<string | null>(null)
   const [errorVideo, setErrorVideo] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (!ejercicio?.video_id) return
+  // El id del video que hay que pedir ahora mismo, y si ya se gastó el único
+  // reintento permitido. Van en refs porque los lee pedirUrl(), que se llama
+  // tanto desde el efecto de montaje como desde el listener de más abajo —y
+  // ninguno de los dos debe recrearse cuando cambia el estado.
+  const videoIdRef = useRef<string | null>(null)
+  const yaReintentado = useRef(false)
 
-    // La URL firmada vence en 5 minutos. Como el video dura 60 segundos como
-    // máximo, la única forma de toparse con el vencimiento es dejar la
-    // pantalla abierta sin mirar; en ese caso se vuelve a montar y se pide de
-    // nuevo. No hace falta renovarla con un timer.
+  const pedirUrl = useCallback(() => {
+    const videoId = videoIdRef.current
+    if (!videoId) return
+
     supabase.functions
-      .invoke('video-url', { body: { videoId: ejercicio.video_id } })
+      .invoke('video-url', { body: { videoId } })
       .then(({ data, error }) => {
         if (error || !data?.rutaFirmada) {
-          setErrorVideo('No pudimos cargar el video.')
+          // 409 = "la fila todavía no llegó a estado 'listo'" (el diseño lo
+          // pide explícito, distinto del genérico). Se puede leer porque
+          // FunctionsHttpError guarda la Response cruda en `context`.
+          const status = error instanceof FunctionsHttpError ? error.context?.status : undefined
+          setErrorVideo(
+            status === 409
+              ? 'El video todavía se está subiendo.'
+              : 'No pudimos cargar el video.',
+          )
           return
         }
         // La función devuelve solo la ruta: adentro del runtime de Edge
         // Functions, SUPABASE_URL es el nombre interno del contenedor y no se
-        // puede resolver desde el teléfono. La base la pone el cliente.
-        setUrlVideo(`${process.env.EXPO_PUBLIC_SUPABASE_URL}${data.rutaFirmada}`)
+        // puede resolver desde el teléfono. La base la pone el cliente. Se le
+        // saca la barra final por si la variable de entorno la trae puesta:
+        // sin esto, la URL queda con "//storage/..." en el medio.
+        const base = (process.env.EXPO_PUBLIC_SUPABASE_URL ?? '').replace(/\/+$/, '')
+        setUrlVideo(`${base}${data.rutaFirmada}`)
       })
-  }, [ejercicio?.video_id])
+  }, [])
+
+  useEffect(() => {
+    if (!ejercicio?.video_id) return
+
+    // Se resetea acá y no solo al montar: si video_id cambiara sin que el
+    // componente se desmonte, por un instante se seguiría viendo (o el error
+    // de) el video anterior.
+    videoIdRef.current = ejercicio.video_id
+    yaReintentado.current = false
+    setUrlVideo(null)
+    setErrorVideo(null)
+    pedirUrl()
+  }, [ejercicio?.video_id, pedirUrl])
 
   const reproductor = useVideoPlayer(urlVideo, (p) => {
     p.loop = true
+  })
+
+  // La URL firmada vence en 5 minutos y el video dura 60 segundos como
+  // máximo, así que la única forma real de toparse con el vencimiento es
+  // dejar la pantalla abierta sin mirar. Y ese es justo el caso en el que
+  // NO se vuelve a montar el componente: sin este listener, el reproductor
+  // queda roto y sin salida hasta navegar afuera y volver. Un solo reintento
+  // (yaReintentado corta el segundo) porque si la URL nueva también falla,
+  // no hay nada que un segundo pedido vaya a arreglar.
+  useEventListener(reproductor, 'statusChange', ({ status }) => {
+    if (status !== 'error' || yaReintentado.current) return
+    yaReintentado.current = true
+    pedirUrl()
   })
 
   if (cargando) {
