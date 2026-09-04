@@ -6,6 +6,7 @@ import { crearClienteNavegador } from '@/lib/supabase/navegador'
 
 type Fase =
   | { nombre: 'inactivo' }
+  | { nombre: 'leyendo' }
   | { nombre: 'subiendo' }
   | { nombre: 'listo' }
   | { nombre: 'error'; mensaje: string }
@@ -18,17 +19,32 @@ type Fase =
  */
 function leerDuracion(archivo: File): Promise<number> {
   return new Promise((resolver) => {
+    let resuelto = false
     const elemento = document.createElement('video')
     elemento.preload = 'metadata'
-    elemento.onloadedmetadata = () => {
-      URL.revokeObjectURL(elemento.src)
-      resolver(elemento.duration)
+    const url = URL.createObjectURL(archivo)
+    elemento.src = url
+
+    // Un solo lugar limpia sea cual sea el camino que termine la lectura, así
+    // el object URL nunca queda sin liberar y una resolución tardía (el
+    // timeout disparando después de un evento, o viceversa) no hace nada.
+    function terminar(duracion: number) {
+      if (resuelto) return
+      resuelto = true
+      clearTimeout(temporizador)
+      URL.revokeObjectURL(url)
+      resolver(duracion)
     }
-    elemento.onerror = () => {
-      URL.revokeObjectURL(elemento.src)
-      resolver(NaN)
-    }
-    elemento.src = URL.createObjectURL(archivo)
+
+    // Con un archivo corrupto o un contenedor que el navegador no reconoce,
+    // ni onloadedmetadata ni onerror llegan a dispararse nunca: sin este
+    // timeout la promesa queda pendiente para siempre y quien hizo clic no
+    // ve absolutamente nada. Diez segundos alcanza de sobra para leer
+    // metadatos locales.
+    const temporizador = setTimeout(() => terminar(NaN), 10_000)
+
+    elemento.onloadedmetadata = () => terminar(elemento.duration)
+    elemento.onerror = () => terminar(NaN)
   })
 }
 
@@ -48,6 +64,11 @@ export function SubirVideo({
     evento.target.value = ''
     if (!archivo) return
 
+    // Se muestra apenas se elige el archivo, no recién después de validar:
+    // así el clic se ve reflejado al toque, y de paso el input desaparece
+    // durante la lectura, así que no hay ventana para que dos `alElegir`
+    // concurrentes compitan por el mismo estado.
+    setFase({ nombre: 'leyendo' })
     const duracionSeg = await leerDuracion(archivo)
     const motivo = validarArchivoVideo({
       tamanoBytes: archivo.size,
@@ -105,6 +126,8 @@ export function SubirVideo({
     <div className="mt-1 text-sm">
       {fase.nombre === 'subiendo' ? (
         <span className="text-gray-600">Subiendo…</span>
+      ) : fase.nombre === 'leyendo' ? (
+        <span className="text-gray-600">Leyendo el archivo…</span>
       ) : (
         <label className="cursor-pointer text-blue-700 underline">
           {tieneVideo || fase.nombre === 'listo' ? 'Reemplazar video' : 'Subir video'}

@@ -4,12 +4,15 @@ Los videos se suben desde el panel y tienen que cumplir tres condiciones:
 
 | | Límite |
 |---|---|
-| Formato | MP4 (H.264) |
+| Formato | MP4 |
 | Duración | 60 segundos |
 | Peso | 50 MB |
 
 Si el archivo no cumple, el panel lo rechaza antes de subir nada y te dice cuál
-de los tres límites se pasó.
+de los tres límites se pasó. El panel solo revisa el contenedor MP4, no el
+códec interno, pero grabar en H.264 (el que usan las cámaras de celular por
+defecto) es lo recomendado: es el que reproduce cualquier navegador sin
+sobresaltos.
 
 ## Grabando con el celular
 
