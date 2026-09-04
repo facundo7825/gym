@@ -268,7 +268,7 @@ export type Database = {
           estado: Database["public"]["Enums"]["estado_video"]
           gym_id: string | null
           id: string
-          stream_uid: string
+          ruta: string
           subido_por: string | null
           thumbnail_url: string | null
         }
@@ -279,7 +279,7 @@ export type Database = {
           estado?: Database["public"]["Enums"]["estado_video"]
           gym_id?: string | null
           id?: string
-          stream_uid: string
+          ruta: string
           subido_por?: string | null
           thumbnail_url?: string | null
         }
@@ -290,7 +290,7 @@ export type Database = {
           estado?: Database["public"]["Enums"]["estado_video"]
           gym_id?: string | null
           id?: string
-          stream_uid?: string
+          ruta?: string
           subido_por?: string | null
           thumbnail_url?: string | null
         }

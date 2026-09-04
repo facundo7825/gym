@@ -9,6 +9,9 @@ create type tipo_equipamiento as enum (
   'peso_corporal', 'otro'
 );
 
+-- procesando = la fila existe, el archivo todavía no
+-- listo      = el objeto está en el bucket y se puede reproducir
+-- error      = la subida se abandonó o falló
 create type estado_video as enum ('procesando', 'listo', 'error');
 
 -- Las máquinas que tiene físicamente cada gimnasio. Existen como tabla
@@ -30,13 +33,15 @@ create table maquinas (
 create index maquinas_gym_id_idx on maquinas (gym_id);
 
 -- gym_id nulo = video del catálogo global.
--- Tabla propia y no un campo `video_url` en ejercicios porque un video
--- subido a Cloudflare NO está disponible al terminar la subida: tarda en
--- transcodificar, y ese estado hay que poder representarlo.
+-- Tabla propia y no un campo `video_url` en ejercicios porque un video NO
+-- está disponible al terminar la subida: entre que se emite la URL de subida
+-- y que la subida se confirma hay una ventana en la que la fila existe y el
+-- archivo no. `estado` es lo que representa esa ventana.
 create table videos (
   id             uuid primary key default gen_random_uuid(),
   gym_id         uuid references gyms(id) on delete cascade,
-  stream_uid     text not null unique,
+  -- Ruta del objeto en el bucket `videos`, con la forma {gym_id}/{id}.mp4.
+  ruta           text not null unique,
   estado         estado_video not null default 'procesando',
   duracion_seg   integer,
   thumbnail_url  text,
