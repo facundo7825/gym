@@ -1,13 +1,14 @@
 import { etiqueta } from '@gym/core'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { FormularioEjercicio } from './formulario'
+import { SubirVideo } from './subir-video'
 
 export default async function Ejercicios() {
   const supabase = await crearClienteServidor()
 
   const { data: ejercicios } = await supabase
     .from('ejercicios')
-    .select('id, nombre, grupo_muscular, equipamiento, gym_id')
+    .select('id, nombre, grupo_muscular, equipamiento, gym_id, video_id')
     .order('nombre')
 
   const { data: maquinas } = await supabase
@@ -32,6 +33,7 @@ export default async function Ejercicios() {
                 <span className="text-gray-500">
                   {' · '}{etiqueta(x.grupo_muscular)}{' · '}{etiqueta(x.equipamiento)}
                 </span>
+                <SubirVideo ejercicioId={x.id} tieneVideo={x.video_id !== null} />
               </li>
             ))}
           </ul>
