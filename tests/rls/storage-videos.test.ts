@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { admin, crearEscenario, type Escenario } from './ayudas'
 
 // El bucket `videos` no tiene ninguna política sobre storage.objects, así que
@@ -21,6 +21,13 @@ describe('el bucket de videos es privado de punta a punta', () => {
       { contentType: 'video/mp4' },
     )
     if (error) throw error
+  })
+
+  // El bucket tiene un cupo de 1 GB, compartido con todo lo que suba cada
+  // corrida de test:rls. Sin este cleanup, cada corrida deja un objeto más
+  // que nadie borra.
+  afterAll(async () => {
+    await admin.storage.from('videos').remove([ruta])
   })
 
   // Esta aserción NO es decorativa y va primera a propósito: `download` de una

@@ -19,7 +19,7 @@ web-build/
 /ios/
 
 # Variables de entorno — NUNCA versionar.
-# Acá viven las claves de Supabase y Cloudflare.
+# Acá viven las claves de Supabase.
 .env
 .env.local
 .env.*.local
