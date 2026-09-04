@@ -15,7 +15,7 @@ export function rechazoPrevio(peticion: Request): Response | null {
 }
 
 /**
- * Cliente con el token de quien llama: hereda sus permisos y su RLS. TODO lo
+ * Cliente con el token de quien llama: hereda sus permisos y su RLS. Todo lo
  * que toque la tabla `videos` va por acá, nunca por el de abajo, para que
  * `videos_leer`, `videos_crear` y `videos_editar` sigan siendo lo que impide
  * alcanzar el gimnasio ajeno.

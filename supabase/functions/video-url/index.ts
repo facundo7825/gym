@@ -36,8 +36,18 @@ Deno.serve(async (peticion) => {
   // Acá está toda la seguridad de esta función, y es una sola línea: RLS solo
   // devuelve el video si quien pregunta pertenece a ese gimnasio, o si el
   // video es del catálogo global.
-  const { data: video } = await supabase
+  const { data: video, error: errorSelect } = await supabase
     .from('videos').select('ruta, estado').eq('id', videoId).maybeSingle()
+
+  // Sin este chequeo, un error de verdad (videoId con formato inválido, la
+  // base caída) se ve igual que "RLS no devolvió la fila": las dos veces
+  // `video` da `null`. Separarlos importa porque si no, el 404 del test de
+  // aislamiento no prueba nada — podría ser RLS funcionando o podría ser un
+  // error de query disfrazado.
+  if (errorSelect) {
+    console.error('No se pudo buscar el video', errorSelect)
+    return responder('No pudimos buscar el video', 500)
+  }
 
   if (!video) return responder('Video no encontrado', 404)
   if (video.estado !== 'listo') {

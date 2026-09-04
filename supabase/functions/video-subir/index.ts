@@ -11,9 +11,19 @@ Deno.serve(async (peticion) => {
   if (!user) return responder('Sesión inválida', 401)
 
   // limit(1) y no single(): una persona puede pertenecer a varios gimnasios.
-  const { data: membresia } = await supabase
+  const { data: membresia, error: errorMembresia } = await supabase
     .from('memberships').select('id, gym_id, rol').eq('user_id', user.id)
     .order('created_at').limit(1).maybeSingle()
+
+  // Sin este chequeo, un error de verdad (la base caída, por ejemplo) cae en
+  // el mismo 403 que "no tenés permiso" de abajo — un mensaje falso, porque
+  // acá no se decidió nada sobre el rol. Ojo: sin membresía en ningún
+  // gimnasio, `membresia` da `null` sin `error`, y eso sigue siendo un 403
+  // legítimo, no este caso.
+  if (errorMembresia) {
+    console.error('No se pudo buscar la membresía', errorMembresia)
+    return responder('No pudimos verificar tu membresía', 500)
+  }
 
   // Este chequeo de rol duplica lo que ya hace RLS en el insert de más abajo,
   // y acá la duplicación es a propósito: sin él firmaríamos una URL de subida
