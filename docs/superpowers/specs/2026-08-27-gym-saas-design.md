@@ -382,7 +382,7 @@ No se persigue cobertura total.
 | Situación | Comportamiento |
 |---|---|
 | Sin conexión | La app sigue funcionando; muestra "3 series sin sincronizar" |
-| Falla la subida de un video | Queda marcado en el panel con botón de reintentar. Nunca desaparece en silencio |
+| Falla la subida de un video | Se muestra un mensaje en el momento ("La subida falló. Probá de nuevo.") y el botón sigue disponible para reintentar. Es estado de React: si se recarga la página, el aviso desaparece y no queda ningún rastro del intento fallido — la fila en `videos` sí queda en `procesando` o `error`, pero el panel no lista esa tabla en ningún lado |
 | La subida no llega a confirmarse | La fila queda en `procesando`, o pasa a `error` si el archivo nunca llegó a Storage. El ejercicio no se asocia al video hasta que queda `listo`, así que la app nunca ofrece uno roto |
 | Error inesperado | Se reporta a Sentry con contexto; al usuario le aparece un mensaje en castellano |
 
