@@ -1,5 +1,11 @@
 # Etapas 0 y 1 — Cimientos, ejercicios y videos
 
+> **Las tareas 11, 12, 13 y 15 quedaron superadas.** Se escribieron contra
+> Cloudflare Stream, que resultó no tener capa gratuita. El reemplazo por
+> Supabase Storage está en
+> [2026-09-04-videos-en-supabase-storage.md](2026-09-04-videos-en-supabase-storage.md).
+> Este plan no se reescribe: es el registro de lo que efectivamente se ejecutó.
+
 > **Para agentes:** SUB-SKILL REQUERIDA: usar `superpowers:subagent-driven-development` (recomendado) o `superpowers:executing-plans` para ejecutar este plan tarea por tarea. Los pasos usan casillas (`- [ ]`) para seguimiento.
 
 **Objetivo:** Dejar funcionando el monorepo con aislamiento entre gimnasios verificado por tests, y el ciclo completo de que un empleado suba un video de ejercicio desde el panel web y un socio lo vea en su celular.

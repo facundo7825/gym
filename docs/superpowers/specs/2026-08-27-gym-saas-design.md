@@ -34,7 +34,7 @@ Definidas antes de diseñar, condicionan todo lo demás:
 | App móvil | Expo (React Native, TypeScript) | Un código para Android e iOS |
 | Panel web | Next.js (TypeScript) | Mismo lenguaje y mismo cliente de datos que la app |
 | Base de datos, auth, storage | Supabase (PostgreSQL) | Datos relacionales, y multi-tenancy resuelto con RLS |
-| Videos | Cloudflare Stream | Transcodifica, sirve con calidad adaptativa y soporta URLs firmadas |
+| Videos | Supabase Storage | Bucket privado con URLs firmadas de vida corta; sin costo en el plan Free |
 | Push | Expo Notifications | Integrado con el resto del stack |
 | Errores | Sentry | App y panel |
 
@@ -147,9 +147,9 @@ Restricción: único por (`gym_id`, `user_id`).
 Tienen tabla propia porque habilitan el filtro **"solo lo que hay en mi gimnasio"** al armar una rutina. Sin ellas ese filtro no se puede expresar.
 
 **`videos`**
-`id` · `gym_id` (nulo = global) · `stream_uid` (id en Cloudflare) · `estado` (`procesando` \| `listo` \| `error`) · `duracion_seg` · `thumbnail_url` · `subido_por` · `error_detalle`
+`id` · `gym_id` (nulo = global) · `ruta` (ruta del objeto en el bucket) · `estado` (`procesando` \| `listo` \| `error`) · `duracion_seg` · `thumbnail_url` · `subido_por` · `error_detalle`
 
-Tabla separada, y no un campo `video_url` dentro del ejercicio, porque un video subido a Cloudflare Stream **no está disponible al terminar la subida**: tarda de segundos a minutos en transcodificar. Ese estado hay que representarlo para que el panel muestre "procesando" y la app no ofrezca un video roto. Además un ejercicio puede tener más de un video (la ejecución correcta, y cómo se regula esa máquina en particular).
+Tabla separada, y no un campo `video_url` dentro del ejercicio, porque un video **no está disponible al terminar la subida**: entre que se emite la URL de subida y que la subida se confirma hay una ventana en la que la fila existe y el archivo no. Ese estado hay que representarlo para que el panel lo muestre y la app no ofrezca un video roto. Además un ejercicio puede tener más de un video (la ejecución correcta, y cómo se regula esa máquina en particular).
 
 **`ejercicios`**
 `id` · `gym_id` (**nulo = catálogo global**) · `nombre` · `descripcion` · `instrucciones` · `grupo_muscular` · `equipamiento` · `maquina_id` (nulo) · `video_id` (nulo) · `creado_por`
@@ -234,9 +234,11 @@ Flujo de reproducción:
 
 1. La app pide reproducir un video.
 2. Una función de Supabase verifica que quien pide pertenece a ese gimnasio (o que el video es global).
-3. Devuelve una **URL firmada de Cloudflare Stream que vence en minutos**.
+3. Devuelve una **URL firmada de Supabase Storage que vence en 5 minutos**.
 
-Toda la integración con Cloudflare vive detrás de un módulo con tres funciones: `subir`, `estado`, `urlFirmada`. Cambiar de proveedor implica reescribir ese archivo y nada más.
+El bucket es privado y no tiene ninguna política sobre `storage.objects`, así que RLS deniega todo acceso directo: ni siquiera un admin del gimnasio dueño puede bajar el objeto. Las Edge Functions son el único camino.
+
+El detalle de la implementación, y por qué el proveedor no es Cloudflare Stream, está en [Videos en Supabase Storage](2026-09-04-videos-en-supabase-storage-design.md), que reemplaza esta sección en todo lo que la contradiga.
 
 **Fuera de alcance:** grabar video dentro de la app, edición de video, y subida desde el teléfono del socio. Solo se sube desde el panel web y solo por personal del gimnasio. Reduce superficie de ataque, costos y necesidad de moderar contenido.
 
@@ -413,7 +415,7 @@ Cada etapa termina en algo mostrable y usable.
 
 **Plazos.** No se estiman en semanas: siendo el primer proyecto de este tamaño del desarrollador, cualquier estimación sería falsa. Lo que sí aplica: **la etapa 0 es la más lenta en relación a lo visible** — pasan días sin una sola pantalla, y es lo esperable.
 
-**Costos.** Hasta la etapa 3, prácticamente cero: las capas gratuitas de Supabase y Cloudflare alcanzan para desarrollar y para los primeros gimnasios. El gasto real aparece con volumen de video, momento en el que ya debería haber ingresos.
+**Costos.** Hasta la etapa 3, cero: las capas gratuitas de Supabase alcanzan para desarrollar y para los primeros gimnasios —1 GB de archivos y 5 GB de egress mensual, sin tarjeta. El gasto real aparece con volumen de video, momento en el que ya debería haber ingresos: el paso siguiente es Supabase Pro (USD 25) o mover únicamente el video a Cloudflare Stream.
 
 ---
 
@@ -446,7 +448,7 @@ Descartado a propósito, con el motivo:
 | Sin señal dentro del gimnasio | Escritura local primero y cola de sincronización |
 | Un gimnasio nuevo arranca con la app vacía | Catálogo global de ejercicios precargado |
 | Demora en la aprobación de Apple | Iniciar el trámite de cuentas al comienzo, probar en dispositivo real desde la etapa 1 |
-| Costo de video sin control al crecer | Cloudflare detrás de un módulo propio, reemplazable sin tocar el resto |
+| Costo de video sin control al crecer | Supabase Storage detrás de tres Edge Functions, reemplazable sin tocar el resto |
 
 ---
 

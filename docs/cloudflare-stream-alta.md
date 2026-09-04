@@ -1,5 +1,10 @@
 # Alta de la cuenta de Cloudflare Stream
 
+> **Archivado.** El proyecto usa Supabase Storage, ver
+> [Videos en Supabase Storage](superpowers/specs/2026-09-04-videos-en-supabase-storage-design.md).
+> Esta guía queda por si el proyecto llega a facturar y la calidad adaptativa
+> pasa a importar: el camino de vuelta toca las mismas piezas que la ida.
+
 Guía de una sola vez para dejar la cuenta lista y completar las variables que el
 proyecto ya espera. Al terminar vas a tener estos cinco valores:
 

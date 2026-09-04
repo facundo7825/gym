@@ -14,7 +14,8 @@ Es multi-gimnasio: cada gym contratante tiene sus datos aislados de los demás.
 
 ## Estado
 
-En diseño. Todavía no hay código.
+En construcción. Las etapas 0 y 1 están implementadas: esquema con RLS,
+autenticación en el panel y la app, ejercicios, máquinas y videos.
 
 📄 **[Diseño completo](docs/superpowers/specs/2026-08-27-gym-saas-design.md)** — es la
 referencia del proyecto: modelo de datos, decisiones de arquitectura y por qué se
@@ -27,7 +28,7 @@ tomó cada una, qué queda fuera de alcance y en qué orden se construye.
 | App móvil | Expo (React Native, TypeScript) |
 | Panel web | Next.js (TypeScript) |
 | Base de datos, auth, storage | Supabase (PostgreSQL) |
-| Videos | Cloudflare Stream |
+| Videos | Supabase Storage |
 | Push | Expo Notifications |
 
 ## Etapas
