@@ -638,16 +638,18 @@ Deno.serve(async (peticion) => {
   const archivo = video.ruta.slice(corte + 1)
 
   const { data: encontrados, error: errorLista } = await almacen.storage
-    .from(BUCKET).list(carpeta, { search: archivo, limit: 1 })
+    .from(BUCKET).list(carpeta, { search: archivo })
 
   if (errorLista) {
     console.error('Storage no respondió', errorLista)
     return responder('No pudimos verificar la subida', 502)
   }
 
-  // `search` de Storage hace coincidencia parcial, así que la igualdad exacta
-  // va acá: sin ella, un objeto con nombre parecido daría por buena una
-  // subida que no ocurrió.
+  // `search` de Storage hace coincidencia por prefijo, así que la igualdad
+  // exacta va acá: sin ella, un objeto con nombre parecido daría por buena
+  // una subida que no ocurrió. Y por eso mismo la llamada de arriba no lleva
+  // `limit`: acotarla a un resultado podría devolver el objeto de nombre
+  // parecido y dejar afuera el que sí buscamos.
   const existe = (encontrados ?? []).some((objeto) => objeto.name === archivo)
 
   if (!existe) {
@@ -875,7 +877,7 @@ git commit -m "Agregar la Edge Function que emite la URL firmada de reproducció
 'use client'
 
 import { useState } from 'react'
-import { validarArchivoVideo } from '@gym/core'
+import { TIPO_ACEPTADO, validarArchivoVideo } from '@gym/core'
 import { crearClienteNavegador } from '@/lib/supabase/navegador'
 
 type Fase =
@@ -961,7 +963,7 @@ export function SubirVideo({
       return
     }
 
-    // RLS decide si este ejercicio es del gimonasio de quien sube.
+    // RLS decide si este ejercicio es del gimnasio de quien sube.
     const { error: errorAsociar } = await supabase
       .from('ejercicios').update({ video_id: firma.videoId }).eq('id', ejercicioId)
     if (errorAsociar) {
@@ -982,7 +984,7 @@ export function SubirVideo({
       ) : (
         <label className="cursor-pointer text-blue-700 underline">
           {tieneVideo || fase.nombre === 'listo' ? 'Reemplazar video' : 'Subir video'}
-          <input type="file" accept="video/mp4" className="hidden" onChange={alElegir} />
+          <input type="file" accept={TIPO_ACEPTADO} className="hidden" onChange={alElegir} />
         </label>
       )}
 
@@ -990,22 +992,20 @@ export function SubirVideo({
         <span className="ml-2 text-green-700">Video listo.</span>
       )}
 
+      {/* El mensaje que devuelve validarArchivoVideo ya dice qué hacer
+          ("Grabá o exportá en 720p"), así que no lleva enlace a la guía:
+          docs/grabar-videos.md es un archivo del repositorio, no una página
+          que el panel sirva, y un enlace roto justo cuando al usuario le
+          rechazaron el archivo es peor que no tener enlace. */}
       {fase.nombre === 'error' && (
-        <p role="alert" className="mt-1 text-red-600">
-          {fase.mensaje}{' '}
-          <a href="/grabar-videos" className="underline">Cómo grabar el video</a>
-        </p>
+        <p role="alert" className="mt-1 text-red-600">{fase.mensaje}</p>
       )}
     </div>
   )
 }
 ```
 
-- [ ] **Paso 2: Corregir el typo del comentario**
-
-En el paso anterior el comentario dice `gimonasio`. Corregirlo a `gimnasio`. (Está a propósito en el plan: si copiaste sin leer, este paso te lo hace notar.)
-
-- [ ] **Paso 3: Mostrar el componente en el listado**
+- [ ] **Paso 2: Mostrar el componente en el listado**
 
 En `apps/panel/src/app/(panel)/ejercicios/page.tsx`, agregar `video_id` al select:
 
@@ -1036,7 +1036,7 @@ Y en el `<li>` de la sección "De mi gimnasio" —solo ahí, porque los globales
             ))}
 ```
 
-- [ ] **Paso 4: Escribir la guía de grabación**
+- [ ] **Paso 3: Escribir la guía de grabación**
 
 `docs/grabar-videos.md`:
 
@@ -1084,7 +1084,7 @@ Recomprimilo con [HandBrake](https://handbrake.fr), que es gratis:
   que parece a simple vista.
 ```
 
-- [ ] **Paso 5: Chequear tipos y levantar el panel**
+- [ ] **Paso 4: Chequear tipos y levantar el panel**
 
 ```bash
 npx tsc --noEmit
@@ -1093,7 +1093,7 @@ npm run dev --workspace panel
 
 Con `npx supabase functions serve` corriendo en otra terminal.
 
-- [ ] **Paso 6: Probar a mano los tres caminos**
+- [ ] **Paso 5: Probar a mano los tres caminos**
 
 Entrando al panel como `entrenador` o `admin`, en `/ejercicios`:
 
@@ -1101,7 +1101,7 @@ Entrando al panel como `entrenador` o `admin`, en `/ejercicios`:
 2. **Archivo demasiado largo:** un mp4 de más de 60 segundos y menos de 50 MB. Esperado: mensaje con la duración en `m:ss`, tampoco hay llamada.
 3. **Archivo válido:** un mp4 de 720p de menos de un minuto. Esperado: "Subiendo…" y después "Video listo.". En el Studio, la fila de `videos` está en `listo` y el `ejercicios.video_id` quedó apuntando a ella.
 
-- [ ] **Paso 7: Commit**
+- [ ] **Paso 6: Commit**
 
 ```bash
 git add "apps/panel/src/app/(panel)/ejercicios" docs/grabar-videos.md
