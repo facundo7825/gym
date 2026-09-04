@@ -26,8 +26,18 @@ Deno.serve(async (peticion) => {
 
   // Acá está toda la autorización, y es una sola línea: RLS solo devuelve el
   // video si quien pregunta pertenece a ese gimnasio.
-  const { data: video } = await supabase
+  const { data: video, error: errorSelect } = await supabase
     .from('videos').select('id, ruta, estado').eq('id', videoId).maybeSingle()
+
+  // Sin este chequeo, un error de verdad (videoId con formato inválido, la
+  // base caída) se ve igual que "RLS no devolvió la fila": las dos veces
+  // `video` da `null`. Separarlos importa porque si no, el 404 del test de
+  // aislamiento no prueba nada — podría ser RLS funcionando o podría ser un
+  // error de query disfrazado.
+  if (errorSelect) {
+    console.error('No se pudo buscar el video', errorSelect)
+    return responder('No pudimos buscar el video', 500)
+  }
 
   if (!video) return responder('Video no encontrado', 404)
 
@@ -65,10 +75,15 @@ Deno.serve(async (peticion) => {
   const existe = (encontrados ?? []).some((objeto) => objeto.name === archivo)
 
   if (!existe) {
-    await supabase.from('videos').update({
+    const { error: errorUpdate } = await supabase.from('videos').update({
       estado: 'error',
       error_detalle: 'La subida no llegó a completarse',
     }).eq('id', video.id)
+    // El 409 se devuelve igual: es lo único que el cliente puede hacer con
+    // esta respuesta. Pero si el update falla, la fila queda trabada en
+    // `procesando` sin que nadie se entere — eso sí tiene que quedar en los
+    // logs, la misma falla callada que esta función existe para evitar.
+    if (errorUpdate) console.error('No se pudo marcar el video como error', errorUpdate)
     return responder('La subida no llegó a completarse', 409)
   }
 
