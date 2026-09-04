@@ -50,6 +50,23 @@ create table videos (
   created_at     timestamptz not null default now()
 );
 
+-- Ancla `ruta` al formato exacto que arma video-subir: {gym_id}/{id}.mp4, o
+-- global/{id}.mp4 cuando gym_id es nulo (catálogo global). videos_crear
+-- habilita el insert con CUALQUIER ruta —la política solo mira el rol y el
+-- gym_id, nunca el contenido de la columna—, así que sin este check un
+-- entrenador podría, desde su propia sesión, insertar una fila con una ruta
+-- arbitraria: apuntando a un objeto ajeno del bucket, o a uno que todavía no
+-- subió nadie. El check no impide que la ruta apunte a un objeto que no
+-- existe en Storage —eso lo sigue sosteniendo video-confirmar—, pero sí
+-- impide que apunte a cualquier OTRO lugar del bucket.
+alter table videos add constraint videos_ruta_formato
+  check (
+    ruta = case
+      when gym_id is not null then gym_id::text || '/' || id::text || '.mp4'
+      else 'global/' || id::text || '.mp4'
+    end
+  );
+
 create index videos_gym_id_idx on videos (gym_id);
 
 -- gym_id nulo = ejercicio del catálogo global, visible para todos los

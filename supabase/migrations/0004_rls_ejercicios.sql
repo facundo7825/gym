@@ -30,6 +30,23 @@ create policy videos_editar on videos for update
   using (gym_id is not null and mi_rol(gym_id) in ('entrenador', 'admin'))
   with check (gym_id is not null and mi_rol(gym_id) in ('entrenador', 'admin'));
 
+-- RLS decide QUÉ FILAS se pueden tocar, nunca qué columnas. videos_editar de
+-- arriba habilita el UPDATE de cualquier columna al entrenador/admin del
+-- gimnasio, y eso alcanza para que, desde la consola del navegador con su
+-- propia sesión, escriba `estado = 'listo'` sin que el archivo exista en el
+-- bucket — sorteando la verificación contra Storage que hace
+-- video-confirmar. El check videos_ruta_formato de 0003_ejercicios.sql ya le
+-- ancla la `ruta` al formato que arma video-subir; esto cierra el resto:
+-- la única forma de tocar `videos` por UPDATE desde una sesión normal queda
+-- en las dos columnas que video-confirmar necesita escribir. Mismo patrón
+-- que profiles.es_superadmin en 0002_rls_identidad.sql, revocando primero el
+-- grant de tabla porque Postgres SUMA privilegios: revocar solo la columna
+-- no descuenta un grant de tabla preexistente. `service_role` no pasa por
+-- acá — conserva su grant de tabla completo, y de todos modos nunca toca
+-- `videos` por esta vía (ver supabase/functions/_compartido/peticion.ts).
+revoke update on public.videos from anon, authenticated;
+grant update (estado, error_detalle) on public.videos to authenticated;
+
 -- Ejercicios: idéntico criterio.
 -- Ojo con el `gym_id is not null` del insert: impide que un gimnasio se
 -- cuele contenido en el catálogo global. Los ejercicios globales los carga
