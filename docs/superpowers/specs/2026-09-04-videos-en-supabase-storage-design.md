@@ -252,11 +252,24 @@ POST /functions/v1/video-url   { videoId }
   → RLS lee la fila     → 404 si es de otro gimnasio
   → estado ≠ 'listo'    → 409
   → service_role: createSignedUrl(ruta, 300)
-  → { url, expiraEn: 300 }
+  → { rutaFirmada, expiraEn: 300 }
 ```
 
 Toda la seguridad es la misma línea de siempre: RLS devuelve la fila solo si quien
 pregunta pertenece a ese gimnasio, o si el video es del catálogo global.
+
+**Devuelve la ruta firmada, no una URL absoluta.** Adentro del runtime de Edge
+Functions `SUPABASE_URL` vale `http://kong:8000` —el nombre interno del
+contenedor—, así que la URL que arma `createSignedUrl` no la puede resolver ni el
+navegador ni el teléfono. Verificado en
+`supabase/.temp/start-secrets/supabase_edge_runtime_gym/env/docker.env`.
+
+Devolver solo la ruta lo resuelve sin variables de entorno nuevas: cada cliente la
+pega a su propia URL de Supabase, que ya conoce porque la usa para todo lo demás.
+La firma no se ve afectada, viaja en la query string. La alternativa —una variable
+`URL_PUBLICA` que la función use como base— agrega un valor de configuración que,
+mal puesto, rompe la reproducción en silencio y hay que mantener distinto en cada
+entorno, incluido el celular físico, cuya IP de red local cambia.
 
 **Vigencia de 300 segundos, no 3600.** El plan de implementación decía una hora,
 pero el diseño original pide una URL que "vence en minutos" y ahí manda el diseño.
@@ -297,17 +310,18 @@ export const DURACION_MAXIMA_SEG = 60
 export function validarArchivoVideo(
   archivo: { tamanoBytes: number; duracionSeg: number; tipo: string },
 ): string | null
-
-export function rutaVideo(gymId: string, videoId: string): string
 ```
 
 `validarArchivoVideo` devuelve el mensaje ya redactado en castellano en vez de un
 booleano o un código: el panel lo muestra tal cual, y así el texto que ve el
 empleado del gimnasio queda bajo test en vez de suelto en un JSX.
 
-`rutaVideo` es una línea, pero va bajo test porque es la que une la fila con el
-objeto: si el panel y la función arman la ruta distinto, el video sube a un lado y
-`video-confirmar` lo busca en otro.
+**No hay una función `rutaVideo` compartida.** Sería la candidata natural —une la
+fila con el objeto— pero no tendría un solo consumidor: las Edge Functions corren
+en Deno y no pueden importar del workspace npm, así que `video-subir` arma la ruta
+inline, y el panel la recibe en la respuesta. Exportarla desde `core` dejaría dos
+definiciones del mismo formato, capaces de divergir sin que nada lo agarre. El
+formato se verifica de punta a punta en la prueba de subida y confirmación.
 
 ## 7. Panel
 
@@ -321,13 +335,19 @@ siguiendo el patrón de `formulario.tsx`.
      ├─ devuelve texto → se muestra y no se sube nada
      └─ devuelve null  → sigue
 4. invoke('video-subir', { duracionSeg })  → { videoId, ruta, uploadUrl, token }
-5. uploadToSignedUrl('videos', ruta, token, archivo)  con barra de progreso
+5. uploadToSignedUrl('videos', ruta, token, archivo)
 6. invoke('video-confirmar', { videoId })  → estado 'listo'
 7. update ejercicios set video_id = videoId
 ```
 
 **No hay polling.** El paso 6 es una llamada y termina; el componente pasa de
-"subiendo 62%" a "listo" sin estado intermedio que consultar.
+"Subiendo…" a "Video listo." sin estado intermedio que consultar.
+
+**El indicador de subida es indeterminado, no una barra de progreso.** El cliente
+de Storage de supabase-js no expone el progreso; conseguirlo obliga a reemplazar
+`uploadToSignedUrl` por un `PUT` crudo con XMLHttpRequest, o sea cambiar un camino
+probado de la librería por código propio para ganar un porcentaje en una
+transferencia de 8 MB que dura segundos.
 
 Si el paso 5 falla, el 6 nunca corre y la fila queda en `procesando`. Si el 6
 devuelve 409, se muestra "La subida no se completó, probá de nuevo" y la fila ya
@@ -341,8 +361,8 @@ El panel no comprime, no recorta y no genera miniatura.
 manifiesto HLS a un MP4 directo:
 
 ```
-al montar → invoke('video-url', { videoId })  → { url, expiraEn: 300 }
-          → useVideoPlayer(url)
+al montar → invoke('video-url', { videoId })  → { rutaFirmada, expiraEn: 300 }
+          → useVideoPlayer(`${EXPO_PUBLIC_SUPABASE_URL}${rutaFirmada}`)
 409 → "El video todavía se está subiendo."
 404 → no se muestra reproductor
 ```
@@ -362,9 +382,10 @@ reintenta. Sin timers ni renovación anticipada.
 Los tests de aislamiento de `tests/rls/ejercicios.test.ts` cubren la fila `videos`
 y no se tocan. Se suman:
 
-**`packages/core/tests/video.test.ts`** — reemplaza a los actuales: los cinco casos
-de `validarArchivoVideo` (tipo incorrecto, tamaño excedido, duración excedida,
-duración inválida, archivo válido) y `rutaVideo`.
+**`packages/core/tests/video.test.ts`** — reemplaza a los actuales, con los casos de
+`validarArchivoVideo`: archivo válido, tipo incorrecto, tamaño excedido, duración
+excedida, duración ilegible, los dos límites excedidos a la vez —gana el tamaño, que
+es el límite duro— y el valor exacto de cada límite, que tiene que pasar.
 
 **Un test de RLS nuevo sobre el bucket:**
 
