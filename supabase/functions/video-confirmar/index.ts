@@ -1,20 +1,11 @@
-import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { CORS, responder } from '../_compartido/cors.ts'
-
-const BUCKET = 'videos'
+import { BUCKET, clienteAlmacen, clienteUsuario, rechazoPrevio } from '../_compartido/peticion.ts'
 
 Deno.serve(async (peticion) => {
-  if (peticion.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS })
-  if (peticion.method !== 'POST') return responder('Método no permitido', 405)
-
-  const autorizacion = peticion.headers.get('Authorization')
-  if (!autorizacion) return responder('Falta autenticación', 401)
-
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_ANON_KEY')!,
-    { global: { headers: { Authorization: autorizacion } } },
-  )
+  const rechazo = rechazoPrevio(peticion)
+  if (rechazo) return rechazo
+  const autorizacion = peticion.headers.get('Authorization')!
+  const supabase = clienteUsuario(autorizacion)
 
   let videoId: string | undefined
   try {
@@ -47,13 +38,9 @@ Deno.serve(async (peticion) => {
     return Response.json({ estado: video.estado }, { headers: CORS })
   }
 
-  // service_role solo para Storage, y con la ruta que salió de la fila que
-  // RLS devolvió — nunca con una que venga del request. Eso es lo que evita
-  // el path traversal.
-  const almacen = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-  )
+  // La ruta que sigue sale de la fila que RLS devolvió — nunca de una que
+  // venga del request. Eso es lo que evita el path traversal.
+  const almacen = clienteAlmacen()
 
   const corte = video.ruta.lastIndexOf('/')
   const carpeta = video.ruta.slice(0, corte)

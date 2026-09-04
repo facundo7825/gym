@@ -1,23 +1,11 @@
-import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { CORS, responder } from '../_compartido/cors.ts'
-
-const BUCKET = 'videos'
+import { BUCKET, clienteAlmacen, clienteUsuario, rechazoPrevio } from '../_compartido/peticion.ts'
 
 Deno.serve(async (peticion) => {
-  if (peticion.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS })
-  if (peticion.method !== 'POST') return responder('Método no permitido', 405)
-
-  const autorizacion = peticion.headers.get('Authorization')
-  if (!autorizacion) return responder('Falta autenticación', 401)
-
-  // Cliente con el token de quien llama: hereda sus permisos y su RLS. Todo
-  // lo que toque la tabla `videos` va por acá, nunca por service_role, para
-  // que `videos_crear` siga siendo lo que impide escribir en el gym ajeno.
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_ANON_KEY')!,
-    { global: { headers: { Authorization: autorizacion } } },
-  )
+  const rechazo = rechazoPrevio(peticion)
+  if (rechazo) return rechazo
+  const autorizacion = peticion.headers.get('Authorization')!
+  const supabase = clienteUsuario(autorizacion)
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return responder('Sesión inválida', 401)
@@ -54,13 +42,7 @@ Deno.serve(async (peticion) => {
   const videoId = crypto.randomUUID()
   const ruta = `${membresia.gym_id}/${videoId}.mp4`
 
-  // service_role solo para Storage: el bucket no tiene políticas, así que
-  // firmar exige saltear RLS. Es una capacidad, no una autorización — para
-  // cuando llega acá, el chequeo de rol de arriba ya decidió.
-  const almacen = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-  )
+  const almacen = clienteAlmacen()
 
   const { data: firma, error: errorFirma } = await almacen.storage
     .from(BUCKET).createSignedUploadUrl(ruta)
