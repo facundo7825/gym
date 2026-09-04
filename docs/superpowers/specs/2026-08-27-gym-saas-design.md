@@ -383,7 +383,7 @@ No se persigue cobertura total.
 |---|---|
 | Sin conexión | La app sigue funcionando; muestra "3 series sin sincronizar" |
 | Falla la subida de un video | Queda marcado en el panel con botón de reintentar. Nunca desaparece en silencio |
-| Video en transcodificación | El panel muestra "procesando"; la app no lo ofrece hasta `estado = 'listo'` |
+| La subida no llega a confirmarse | La fila queda en `procesando`, o pasa a `error` si el archivo nunca llegó a Storage. El ejercicio no se asocia al video hasta que queda `listo`, así que la app nunca ofrece uno roto |
 | Error inesperado | Se reporta a Sentry con contexto; al usuario le aparece un mensaje en castellano |
 
 Al socio nunca se le muestra un stack trace ni un código de error.

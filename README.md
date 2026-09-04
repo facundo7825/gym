@@ -35,8 +35,8 @@ tomó cada una, qué queda fuera de alcance y en qué orden se construye.
 
 | # | Etapa | Estado |
 |---|---|---|
-| 0 | Cimientos: esquema, auth, roles y aislamiento entre gimnasios | Pendiente |
-| 1 | Ejercicios, máquinas y videos | Pendiente |
+| 0 | Cimientos: esquema, auth, roles y aislamiento entre gimnasios | Hecha |
+| 1 | Ejercicios, máquinas y videos | Hecha |
 | 2 | Rutinas: catálogo, armador propio y asignación | Pendiente |
 | 3 | Registro de entrenamiento, modo sin conexión y progreso | Pendiente |
 | 4 | Socios, cuotas y check-in con QR | Pendiente |
