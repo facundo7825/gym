@@ -1,5 +1,11 @@
 import { CORS, responder } from '../_compartido/cors.ts'
-import { BUCKET, clienteAlmacen, clienteUsuario, rechazoPrevio } from '../_compartido/peticion.ts'
+import {
+  BUCKET,
+  clienteAlmacen,
+  clienteUsuario,
+  rechazoPrevio,
+  usuarioAutenticado,
+} from '../_compartido/peticion.ts'
 
 // El diseño general pide una URL que "vence en minutos". Con videos de 60
 // segundos como máximo, cinco alcanzan de sobra para reproducir, y es una
@@ -24,6 +30,9 @@ Deno.serve(async (peticion) => {
   if (rechazo) return rechazo
   const autorizacion = peticion.headers.get('Authorization')!
   const supabase = clienteUsuario(autorizacion)
+
+  const user = await usuarioAutenticado(supabase)
+  if (user instanceof Response) return user
 
   let videoId: string | undefined
   try {

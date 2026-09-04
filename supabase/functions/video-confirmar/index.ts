@@ -1,11 +1,20 @@
 import { CORS, responder } from '../_compartido/cors.ts'
-import { BUCKET, clienteAlmacen, clienteUsuario, rechazoPrevio } from '../_compartido/peticion.ts'
+import {
+  BUCKET,
+  clienteAlmacen,
+  clienteUsuario,
+  rechazoPrevio,
+  usuarioAutenticado,
+} from '../_compartido/peticion.ts'
 
 Deno.serve(async (peticion) => {
   const rechazo = rechazoPrevio(peticion)
   if (rechazo) return rechazo
   const autorizacion = peticion.headers.get('Authorization')!
   const supabase = clienteUsuario(autorizacion)
+
+  const user = await usuarioAutenticado(supabase)
+  if (user instanceof Response) return user
 
   let videoId: string | undefined
   try {

@@ -1,5 +1,11 @@
 import { CORS, responder } from '../_compartido/cors.ts'
-import { BUCKET, clienteAlmacen, clienteUsuario, rechazoPrevio } from '../_compartido/peticion.ts'
+import {
+  BUCKET,
+  clienteAlmacen,
+  clienteUsuario,
+  rechazoPrevio,
+  usuarioAutenticado,
+} from '../_compartido/peticion.ts'
 
 Deno.serve(async (peticion) => {
   const rechazo = rechazoPrevio(peticion)
@@ -7,8 +13,8 @@ Deno.serve(async (peticion) => {
   const autorizacion = peticion.headers.get('Authorization')!
   const supabase = clienteUsuario(autorizacion)
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return responder('Sesión inválida', 401)
+  const user = await usuarioAutenticado(supabase)
+  if (user instanceof Response) return user
 
   // limit(1) y no single(): una persona puede pertenecer a varios gimnasios.
   const { data: membresia, error: errorMembresia } = await supabase
