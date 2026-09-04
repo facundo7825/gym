@@ -89,9 +89,25 @@ El argumento del diseño original para que `videos` sea tabla propia y no un cam
 `video_url` dentro de `ejercicios` sigue en pie: hay un estado que representar. Lo
 que cambia es su duración, de minutos a segundos.
 
-**Invariante que el sistema sostiene:** `estado = 'listo'` implica que el objeto
-existe en el bucket. Se garantiza verificando contra Storage antes de escribir el
-estado, no confiando en el cliente. De ahí sale la función `video-confirmar`.
+**Lo que `video-confirmar` garantiza, y lo que no.** Es el camino que usa el
+panel para pasar un video a `listo`, y ahí la verificación es real: antes de
+escribir el estado, comprueba contra Storage que el objeto exista. Por ese
+camino, `estado = 'listo'` sí implica que el objeto está en el bucket.
+
+Pero la política `videos_editar` de `0004_rls_ejercicios.sql` sigue habilitando
+el UPDATE de `estado` al entrenador o admin del gimnasio con su propia sesión
+— el arreglo de la revisión final acotó por grant las columnas que esa
+política deja escribir a `estado` y `error_detalle` (cerrando `ruta` y el
+resto), pero no le sacó `estado` a la lista, y por lo tanto no cierra este
+camino. Quien tenga sesión puede seguir escribiendo `estado = 'listo'` directo
+contra la tabla, sin pasar por la Edge Function y sin que el objeto exista.
+La invariante, entonces, la sostiene `video-confirmar`, no la base: es cierta
+para quien usa el panel, no una garantía que el esquema fuerce.
+
+Cerrarla de verdad implica sacarle a la sesión del cliente la capacidad de
+mover `estado` a `listo` — un RPC `security definer` que sea el único camino
+de escritura, o un trigger que valide contra Storage en el propio UPDATE — y
+eso es rediseño: queda anotado para cuando haga falta, no resuelto acá.
 
 ### El bucket se crea por migración
 
