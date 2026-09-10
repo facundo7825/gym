@@ -54,6 +54,23 @@ begin
 end;
 $$;
 
+-- copiar_rutina es interna: la llaman tomar_rutina y duplicar_plantilla, y
+-- nadie más. Queda igual expuesta como RPC por PostgREST, y así se deja a
+-- propósito.
+--
+-- Revocarle el execute a anon y authenticated no serviría de nada: al crearla,
+-- Postgres le da execute a PUBLIC, y revocarle a un rol puntual no descuenta
+-- ese grant (proacl queda con `=X/postgres`, y has_function_privilege sigue
+-- diciendo que sí). Y revocárselo también a PUBLIC —que sí sería efectivo—
+-- rompe a las dos que la llaman: son security invoker, así que el permiso se
+-- chequea contra el usuario final, que quedaría sin execute.
+--
+-- Que quede expuesta no abre nada: es security invoker, así que el select de
+-- los días de origen y los insert en la rutina destino pasan por RLS igual que
+-- si los hiciera el cliente a mano. Lo más que puede hacer quien la llame
+-- directo es copiarse días que ya puede leer dentro de una rutina que ya puede
+-- editar — que es exactamente lo que puede hacer sin ella.
+
 -- Una sola función para los dos casos de uso —el socio tomando del catálogo y
 -- el entrenador asignando—, que se diferencian solo en la política. La
 -- alternativa era una función por caso, con la regla de quién puede asignarle

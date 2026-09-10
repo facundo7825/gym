@@ -154,6 +154,17 @@ create policy rutinas_crear on rutinas for insert with check (
 );
 
 -- El with check explícito, por el motivo documentado en maquinas_editar.
+--
+-- Con una salvedad que conviene tener escrita, porque el with check sugiere
+-- una protección que no está dando: puedo_editar_rutina(id) busca la fila por
+-- id, y adentro de un update la encuentra con los valores VIEJOS. O sea que
+-- acá vuelve a evaluar la fila vieja, no la nueva. Quien impide que alguien se
+-- salga de su propio alcance —mudando la rutina a otro gimnasio, o
+-- cambiándole el tipo o el propietario— es el trigger de 0008, no esta
+-- política. Hoy no queda hueco porque las columnas de las que depende la
+-- editabilidad (gym_id, tipo, propietario_id, asignada_por) son justamente
+-- las cuatro inmutables. Si alguna dejara de serlo, este with check no la
+-- cubriría.
 create policy rutinas_editar on rutinas for update
   using (puedo_editar_rutina(id))
   with check (puedo_editar_rutina(id));
@@ -189,9 +200,18 @@ create policy rutina_ejercicios_crear on rutina_ejercicios for insert
     and exists (select 1 from ejercicios e where e.id = ejercicio_id)
   );
 
+-- El mismo exists del insert, repetido a propósito: sin él se podía insertar
+-- apuntando a un ejercicio legítimo y después mover ejercicio_id con un update
+-- a uno privado de otro gimnasio. No hay fuga de lectura —la RLS de ejercicios
+-- sigue tapando el nombre y el video— pero queda una referencia cruzada que,
+-- por el `on delete restrict` de 0006, le impide al otro gimnasio borrar su
+-- propio ejercicio.
 create policy rutina_ejercicios_editar on rutina_ejercicios for update
   using (puedo_editar_dia(rutina_dia_id))
-  with check (puedo_editar_dia(rutina_dia_id));
+  with check (
+    puedo_editar_dia(rutina_dia_id)
+    and exists (select 1 from ejercicios e where e.id = ejercicio_id)
+  );
 
 create policy rutina_ejercicios_borrar on rutina_ejercicios for delete
   using (puedo_editar_dia(rutina_dia_id));
