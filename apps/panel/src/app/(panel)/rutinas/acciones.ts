@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { NIVELES_RUTINA, OBJETIVOS_RUTINA } from '@gym/core'
+import { NIVELES_RUTINA, OBJETIVOS_RUTINA, validarBorrador } from '@gym/core'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 
 export type EstadoFormulario = { error?: string }
@@ -69,5 +69,59 @@ export async function archivar(id: string): Promise<EstadoFormulario> {
   if (error) return { error: 'No pudimos archivar la rutina' }
 
   revalidatePath('/rutinas')
+  return {}
+}
+
+export async function asignar(
+  plantillaId: string,
+  propietarioId: string,
+): Promise<EstadoFormulario> {
+  const supabase = await crearClienteServidor()
+
+  // Es el único lugar donde validarBorrador tiene algo que decir: el editor
+  // de la tarea 8 persiste cada día y cada ejercicio en el momento, así que
+  // nunca hay un borrador en memoria que validar. Acá sí: asignarle a un
+  // socio una plantilla vacía o con un día sin ejercicios le deja en el
+  // teléfono una rutina que no se puede entrenar.
+  const { data: plantilla } = await supabase
+    .from('rutinas')
+    .select(`
+      nombre,
+      rutina_dias (
+        nombre,
+        rutina_ejercicios ( ejercicio_id, series, repeticiones )
+      )
+    `)
+    .eq('id', plantillaId)
+    .maybeSingle()
+
+  if (!plantilla) return { error: 'No encontramos esa rutina' }
+
+  const errores = validarBorrador({
+    nombre: plantilla.nombre,
+    dias: plantilla.rutina_dias.map((d) => ({
+      nombre: d.nombre,
+      ejercicios: d.rutina_ejercicios.map((e) => ({
+        ejercicio_id: e.ejercicio_id,
+        series: e.series,
+        repeticiones: e.repeticiones,
+      })),
+    })),
+  })
+  if (errores.length > 0) return { error: errores[0] }
+
+  const { error } = await supabase.rpc('tomar_rutina', {
+    p_plantilla_id: plantillaId,
+    p_propietario_id: propietarioId,
+  })
+
+  // 23505 = unique_violation: el socio ya tiene una copia activa de esta
+  // plantilla. No es un error del sistema, así que se dice qué pasó.
+  if (error?.code === '23505') {
+    return { error: 'Ese socio ya tiene esta rutina' }
+  }
+  if (error) return { error: 'No pudimos asignar la rutina' }
+
+  revalidatePath('/socios')
   return {}
 }
