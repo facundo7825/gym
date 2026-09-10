@@ -178,6 +178,10 @@ Restricción: `tipo = 'plantilla'` exige `propietario_id` nulo; `tipo = 'activa'
 
 `repeticiones` es texto y no número porque los rangos (`"8-12"`, `"al fallo"`) son la forma normal de prescribir.
 
+`rutina_dias` y `rutina_ejercicios` no llevan `gym_id` propio: llegan al gimnasio por su padre (`rutina_dias.rutina_id → rutinas.gym_id`, y `rutina_ejercicios.rutina_dia_id` por transitividad). Repetir la columna en las tres tablas no sumaría aislamiento, solo un lugar más donde podría desincronizarse del padre.
+
+`asignada_por` no es un dato informativo: es lo que decide si el entrenador puede seguir editando una rutina activa después de crearla. Nulo —el socio se la armó solo— la deja fuera de su alcance; cargado —se la asignó el entrenador— se la deja abierta a quien se la asignó, que es justamente la razón por la que se la asignó.
+
 #### Al tomar una rutina, se copia — no se referencia
 
 Cuando un socio toma una plantilla del catálogo, se crea **una copia completa** a su nombre (`tipo = 'activa'`, `propietario_id` = su membresía), con `origen_id` apuntando a la plantilla original.
@@ -354,6 +358,8 @@ Se usan *workspaces* de npm. Sin herramientas adicionales.
 | **Ejercicios** | Buscador con videos; filtros por músculo, equipamiento y disponibilidad en el gym |
 | **Progreso** | Récords, gráficos por ejercicio, historial |
 | **Perfil** | Mi QR, estado de cuota, preferencias de notificación |
+
+El botón *Empezar* de la pestaña Hoy llega recién con la etapa 3, junto con el registro de entrenamiento. En la etapa 2 la pestaña es de solo lectura: muestra la rutina activa del socio y sus días, y es el socio quien elige qué día mirar —todavía no hay una detección automática de "qué toca hoy".
 
 ### Panel del empleado — cinco secciones
 
