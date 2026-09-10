@@ -13,7 +13,7 @@ export default async function EditarRutina({
   const { data: rutina } = await supabase
     .from('rutinas')
     .select(`
-      id, nombre, tipo, estado,
+      id, nombre,
       rutina_dias (
         id, orden, nombre,
         rutina_ejercicios (

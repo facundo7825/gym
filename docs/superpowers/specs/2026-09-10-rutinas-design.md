@@ -1,7 +1,7 @@
 # Diseño — Rutinas (etapa 2)
 
 **Fecha:** 2026-09-10
-**Estado:** aprobado, pendiente de plan de implementación
+**Estado:** implementado — ver el [plan](../plans/2026-09-10-rutinas.md)
 **Desarrolla:** [Diseño general](2026-08-27-gym-saas-design.md), secciones 5 (Rutinas), 8 y 12
 
 ---

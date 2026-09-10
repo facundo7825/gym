@@ -36,13 +36,20 @@ export function Editor({
   ejercicios: { id: string; nombre: string }[]
 }) {
   const dias = [...rutina.rutina_dias].sort((a, b) => a.orden - b.orden)
-  const [diaActivoId, setDiaActivoId] = useState(dias[0]?.id ?? null)
+  // Arranca en null y NO en dias[0]: el estado se calcula una sola vez, así
+  // que fijarlo al montar dejaba el panel derecho vacío después de agregarle
+  // el primer día a una rutina que no tenía ninguno.
+  const [diaActivoId, setDiaActivoId] = useState<string | null>(null)
   const [nombreDia, setNombreDia] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [pendiente, iniciar] = useTransition()
   const [arrastrado, setArrastrado] = useState<string | null>(null)
 
-  const diaActivo = dias.find((d) => d.id === diaActivoId) ?? null
+  // El ?? dias[0] cubre los dos casos en que diaActivoId no apunta a nada:
+  // todavía no se eligió ninguno, y se borró el que estaba activo habiendo
+  // otros. Sin él, el panel derecho decía "Agregá un día para empezar" con
+  // días en la lista.
+  const diaActivo = dias.find((d) => d.id === diaActivoId) ?? dias[0] ?? null
   const ejerciciosDelDia = diaActivo
     ? [...diaActivo.rutina_ejercicios].sort((a, b) => a.orden - b.orden)
     : []
@@ -82,7 +89,7 @@ export function Editor({
                 onDrop={() => soltarEn(dias, d.id, (ids) => reordenarDias(rutina.id, ids))}
                 onClick={() => setDiaActivoId(d.id)}
                 className={`flex cursor-grab items-center gap-2 px-3 py-2 ${
-                  d.id === diaActivoId ? 'bg-gray-100 font-semibold' : ''
+                  d.id === diaActivo?.id ? 'bg-gray-100 font-semibold' : ''
                 }`}
               >
                 <span className="text-gray-400">⣿</span>

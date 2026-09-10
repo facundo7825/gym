@@ -108,7 +108,10 @@ export async function asignar(
       })),
     })),
   })
-  if (errores.length > 0) return { error: errores[0] }
+  // Todos, no solo el primero: validarBorrador los junta a propósito, y
+  // arreglar de a uno obliga a reintentar la asignación tantas veces como
+  // problemas tenga la plantilla.
+  if (errores.length > 0) return { error: errores.join(' · ') }
 
   const { error } = await supabase.rpc('tomar_rutina', {
     p_plantilla_id: plantillaId,
