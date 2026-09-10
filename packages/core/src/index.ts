@@ -12,3 +12,7 @@ export {
 export type { EstadoVideo } from './video'
 export { filtrarEjercicios } from './filtro-ejercicios'
 export type { EjercicioFiltrable, Filtros } from './filtro-ejercicios'
+export { validarBorrador, diaAMostrar } from './rutina'
+export type {
+  EjercicioBorrador, DiaBorrador, RutinaBorrador, DiaOrdenable,
+} from './rutina'
