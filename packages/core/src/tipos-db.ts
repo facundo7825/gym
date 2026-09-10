@@ -495,6 +495,11 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      copiar_rutina: {
+        Args: { p_nueva_id: string; p_origen_id: string }
+        Returns: undefined
+      }
+      duplicar_plantilla: { Args: { p_rutina_id: string }; Returns: string }
       mi_membresia: { Args: { p_gym_id: string }; Returns: string }
       mi_rol: {
         Args: { p_gym_id: string }
@@ -506,6 +511,10 @@ export type Database = {
       puedo_ver_dia: { Args: { p_dia_id: string }; Returns: boolean }
       puedo_ver_rutina: { Args: { p_rutina_id: string }; Returns: boolean }
       soy_superadmin: { Args: never; Returns: boolean }
+      tomar_rutina: {
+        Args: { p_plantilla_id: string; p_propietario_id: string }
+        Returns: string
+      }
     }
     Enums: {
       estado_membresia: "activo" | "inactivo"

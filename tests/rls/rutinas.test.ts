@@ -368,3 +368,147 @@ describe('columnas inmutables de rutinas', () => {
     expect(error).toBeNull()
   })
 })
+
+describe('tomar y duplicar rutinas', () => {
+  let e: Escenario
+  let plantilla: string
+
+  beforeAll(async () => {
+    e = await crearEscenario()
+
+    const { data: p } = await admin
+      .from('rutinas')
+      .insert({
+        gym_id: e.gymA, nombre: 'Full body 3 días', tipo: 'plantilla',
+        objetivo: 'hipertrofia', nivel: 'principiante',
+      })
+      .select('id').single()
+    plantilla = p!.id
+
+    const { data: ejercicios } = await admin
+      .from('ejercicios').select('id').limit(2)
+
+    for (const orden of [1, 2]) {
+      const { data: dia } = await admin
+        .from('rutina_dias')
+        .insert({ rutina_id: plantilla, orden, nombre: `Día ${orden}` })
+        .select('id').single()
+
+      await admin.from('rutina_ejercicios').insert([
+        {
+          rutina_dia_id: dia!.id, ejercicio_id: ejercicios![0].id,
+          orden: 1, series: 4, repeticiones: '8-12', descanso_seg: 90,
+        },
+        {
+          rutina_dia_id: dia!.id, ejercicio_id: ejercicios![1].id,
+          orden: 2, series: 3, repeticiones: '12', descanso_seg: 60,
+        },
+      ])
+    }
+  })
+
+  it('el socio toma una plantilla y se copia el árbol entero', async () => {
+    const { data: nuevaId, error } = await e.comoSocioA.rpc('tomar_rutina', {
+      p_plantilla_id: plantilla,
+      p_propietario_id: e.socioAMembresiaId,
+    })
+    expect(error).toBeNull()
+
+    const { data: copia } = await admin
+      .from('rutinas')
+      .select('tipo, propietario_id, origen_id, asignada_por, objetivo, nombre')
+      .eq('id', nuevaId).single()
+
+    expect(copia).toMatchObject({
+      tipo: 'activa',
+      propietario_id: e.socioAMembresiaId,
+      origen_id: plantilla,
+      asignada_por: null,
+      objetivo: 'hipertrofia',
+      nombre: 'Full body 3 días',
+    })
+
+    const { data: dias } = await admin
+      .from('rutina_dias').select('id, orden, nombre')
+      .eq('rutina_id', nuevaId).order('orden')
+    expect(dias).toHaveLength(2)
+    expect(dias![0].nombre).toBe('Día 1')
+
+    const { data: ejercicios } = await admin
+      .from('rutina_ejercicios')
+      .select('orden, series, repeticiones, descanso_seg')
+      .eq('rutina_dia_id', dias![0].id).order('orden')
+    expect(ejercicios).toHaveLength(2)
+    expect(ejercicios![0]).toMatchObject({
+      orden: 1, series: 4, repeticiones: '8-12', descanso_seg: 90,
+    })
+  })
+
+  it('tomar dos veces la misma plantilla falla', async () => {
+    const { error } = await e.comoSocioA.rpc('tomar_rutina', {
+      p_plantilla_id: plantilla,
+      p_propietario_id: e.socioAMembresiaId,
+    })
+    expect(error).not.toBeNull()
+    // 23505 = unique_violation. La pantalla lo traduce a "Ya tenés esta rutina".
+    expect(error!.code).toBe('23505')
+  })
+
+  it('el socio del gimnasio B no puede copiar una plantilla del A', async () => {
+    const { error } = await e.comoSocioB.rpc('tomar_rutina', {
+      p_plantilla_id: plantilla,
+      p_propietario_id: e.socioAMembresiaId,
+    })
+    expect(error).not.toBeNull()
+  })
+
+  it('el entrenador le asigna la plantilla a un socio y queda firmada', async () => {
+    const { data: nuevaId, error } = await e.comoEntrenadorA.rpc('tomar_rutina', {
+      p_plantilla_id: plantilla,
+      p_propietario_id: e.socioA2MembresiaId,
+    })
+    expect(error).toBeNull()
+
+    const { data: copia } = await admin
+      .from('rutinas').select('propietario_id, asignada_por')
+      .eq('id', nuevaId).single()
+
+    expect(copia).toMatchObject({
+      propietario_id: e.socioA2MembresiaId,
+      asignada_por: e.entrenadorAMembresiaId,
+    })
+  })
+
+  it('un socio no puede asignarle una rutina a otro socio', async () => {
+    const { error } = await e.comoSocioA.rpc('tomar_rutina', {
+      p_plantilla_id: plantilla,
+      p_propietario_id: e.socioA2MembresiaId,
+    })
+    expect(error).not.toBeNull()
+  })
+
+  it('duplicar una plantilla deja origen_id nulo', async () => {
+    const { data: nuevaId, error } = await e.comoEntrenadorA
+      .rpc('duplicar_plantilla', { p_rutina_id: plantilla })
+    expect(error).toBeNull()
+
+    const { data: copia } = await admin
+      .from('rutinas').select('tipo, origen_id, propietario_id, nombre')
+      .eq('id', nuevaId).single()
+
+    expect(copia).toMatchObject({
+      tipo: 'plantilla', origen_id: null, propietario_id: null,
+    })
+    expect(copia!.nombre).toBe('Full body 3 días (copia)')
+
+    const { data: dias } = await admin
+      .from('rutina_dias').select('id').eq('rutina_id', nuevaId)
+    expect(dias).toHaveLength(2)
+  })
+
+  it('el socio no puede duplicar una plantilla', async () => {
+    const { error } = await e.comoSocioA
+      .rpc('duplicar_plantilla', { p_rutina_id: plantilla })
+    expect(error).not.toBeNull()
+  })
+})
