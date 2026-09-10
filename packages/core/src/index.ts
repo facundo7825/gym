@@ -1,8 +1,12 @@
 export { puede } from './permisos'
 export type { Rol, Accion } from './permisos'
 export type { Database } from './tipos-db'
-export { GRUPOS_MUSCULARES, EQUIPAMIENTOS, etiqueta } from './catalogo'
-export type { GrupoMuscular, Equipamiento } from './catalogo'
+export {
+  GRUPOS_MUSCULARES, EQUIPAMIENTOS, OBJETIVOS_RUTINA, NIVELES_RUTINA, etiqueta,
+} from './catalogo'
+export type {
+  GrupoMuscular, Equipamiento, ObjetivoRutina, NivelRutina,
+} from './catalogo'
 export {
   DURACION_MAXIMA_SEG,
   TAMANO_MAXIMO_BYTES,

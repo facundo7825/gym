@@ -1,12 +1,10 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { NIVELES_RUTINA, OBJETIVOS_RUTINA } from '@gym/core'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 
 export type EstadoFormulario = { error?: string }
-
-const OBJETIVOS = ['fuerza', 'hipertrofia', 'resistencia', 'perdida_grasa', 'general']
-const NIVELES = ['principiante', 'intermedio', 'avanzado']
 
 async function miMembresia() {
   const supabase = await crearClienteServidor()
@@ -30,8 +28,8 @@ export async function crearPlantilla(
   const nivel = String(datos.get('nivel') ?? '')
 
   if (!nombre) return { error: 'El nombre es obligatorio' }
-  if (!OBJETIVOS.includes(objetivo)) return { error: 'Elegí un objetivo' }
-  if (!NIVELES.includes(nivel)) return { error: 'Elegí un nivel' }
+  if (!OBJETIVOS_RUTINA.includes(objetivo as never)) return { error: 'Elegí un objetivo' }
+  if (!NIVELES_RUTINA.includes(nivel as never)) return { error: 'Elegí un nivel' }
 
   const membresia = await miMembresia()
   if (!membresia) return { error: 'Sesión vencida' }

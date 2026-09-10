@@ -1,21 +1,8 @@
 'use client'
 
 import { useActionState } from 'react'
+import { NIVELES_RUTINA, OBJETIVOS_RUTINA, etiqueta } from '@gym/core'
 import { crearPlantilla, type EstadoFormulario } from './acciones'
-
-const OBJETIVOS = [
-  ['general', 'General'],
-  ['fuerza', 'Fuerza'],
-  ['hipertrofia', 'Hipertrofia'],
-  ['resistencia', 'Resistencia'],
-  ['perdida_grasa', 'Pérdida de grasa'],
-] as const
-
-const NIVELES = [
-  ['principiante', 'Principiante'],
-  ['intermedio', 'Intermedio'],
-  ['avanzado', 'Avanzado'],
-] as const
 
 const INICIAL: EstadoFormulario = {}
 
@@ -35,20 +22,22 @@ export function FormularioPlantilla() {
       <div className="flex gap-3">
         <select name="objetivo" defaultValue="general"
           className="rounded border px-3 py-2">
-          {OBJETIVOS.map(([valor, texto]) => (
-            <option key={valor} value={valor}>{texto}</option>
+          {OBJETIVOS_RUTINA.map((valor) => (
+            <option key={valor} value={valor}>{etiqueta(valor)}</option>
           ))}
         </select>
 
         <select name="nivel" defaultValue="principiante"
           className="rounded border px-3 py-2">
-          {NIVELES.map(([valor, texto]) => (
-            <option key={valor} value={valor}>{texto}</option>
+          {NIVELES_RUTINA.map((valor) => (
+            <option key={valor} value={valor}>{etiqueta(valor)}</option>
           ))}
         </select>
       </div>
 
-      {estado.error && <p className="text-red-600">{estado.error}</p>}
+      {estado.error && (
+        <p role="alert" className="text-red-600">{estado.error}</p>
+      )}
 
       <button type="submit" disabled={enviando}
         className="rounded bg-black px-4 py-2 text-white disabled:opacity-50">
