@@ -495,11 +495,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      mi_membresia: { Args: { p_gym_id: string }; Returns: string }
       mi_rol: {
         Args: { p_gym_id: string }
         Returns: Database["public"]["Enums"]["rol_membresia"]
       }
       mis_gyms: { Args: never; Returns: string[] }
+      puedo_editar_dia: { Args: { p_dia_id: string }; Returns: boolean }
+      puedo_editar_rutina: { Args: { p_rutina_id: string }; Returns: boolean }
+      puedo_ver_dia: { Args: { p_dia_id: string }; Returns: boolean }
+      puedo_ver_rutina: { Args: { p_rutina_id: string }; Returns: boolean }
       soy_superadmin: { Args: never; Returns: boolean }
     }
     Enums: {
