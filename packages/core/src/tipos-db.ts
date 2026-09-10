@@ -518,6 +518,14 @@ export type Database = {
         }
         Returns: boolean
       }
+      reordenar_dias: {
+        Args: { p_ids: string[]; p_rutina_id: string }
+        Returns: undefined
+      }
+      reordenar_ejercicios: {
+        Args: { p_dia_id: string; p_ids: string[] }
+        Returns: undefined
+      }
       soy_superadmin: { Args: never; Returns: boolean }
       tomar_rutina: {
         Args: { p_plantilla_id: string; p_propietario_id: string }

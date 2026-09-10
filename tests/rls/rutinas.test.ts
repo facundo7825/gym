@@ -539,3 +539,120 @@ describe('insert con returning sobre rutinas', () => {
     expect(data!.id).toBeDefined()
   })
 })
+
+describe('reordenar', () => {
+  let e: Escenario
+  let rutina: string
+  let dias: string[]
+
+  beforeAll(async () => {
+    e = await crearEscenario()
+
+    const { data: r } = await admin
+      .from('rutinas')
+      .insert({
+        gym_id: e.gymA, nombre: 'Mía', tipo: 'activa',
+        propietario_id: e.socioAMembresiaId,
+      })
+      .select('id').single()
+    rutina = r!.id
+
+    const { data: creados } = await admin
+      .from('rutina_dias')
+      .insert([
+        { rutina_id: rutina, orden: 1, nombre: 'Día 1' },
+        { rutina_id: rutina, orden: 2, nombre: 'Día 2' },
+        { rutina_id: rutina, orden: 3, nombre: 'Día 3' },
+      ])
+      .select('id, orden')
+    dias = creados!.sort((a, b) => a.orden - b.orden).map((d) => d.id)
+  })
+
+  it('reescribe el orden según la posición en el arreglo', async () => {
+    const { error } = await e.comoSocioA.rpc('reordenar_dias', {
+      p_rutina_id: rutina,
+      p_ids: [dias[2], dias[0], dias[1]],
+    })
+    expect(error).toBeNull()
+
+    const { data } = await admin
+      .from('rutina_dias').select('id, orden').eq('rutina_id', rutina).order('orden')
+    expect(data!.map((d) => d.id)).toEqual([dias[2], dias[0], dias[1]])
+    expect(data!.map((d) => d.orden)).toEqual([1, 2, 3])
+  })
+
+  it('rechaza una lista incompleta: dejaría huecos en el orden', async () => {
+    const { error } = await e.comoSocioA.rpc('reordenar_dias', {
+      p_rutina_id: rutina,
+      p_ids: [dias[0], dias[1]],
+    })
+    expect(error).not.toBeNull()
+  })
+
+  it('rechaza una lista con repetidos', async () => {
+    const { error } = await e.comoSocioA.rpc('reordenar_dias', {
+      p_rutina_id: rutina,
+      p_ids: [dias[0], dias[0], dias[1]],
+    })
+    expect(error).not.toBeNull()
+  })
+
+  it('rechaza un día que no es de esta rutina: no se roba un día ajeno', async () => {
+    const { data: otra } = await admin
+      .from('rutinas')
+      .insert({
+        gym_id: e.gymA, nombre: 'Otra', tipo: 'activa',
+        propietario_id: e.socioAMembresiaId,
+      })
+      .select('id').single()
+    const { data: ajeno } = await admin
+      .from('rutina_dias')
+      .insert({ rutina_id: otra!.id, orden: 1, nombre: 'Ajeno' })
+      .select('id').single()
+
+    const { error } = await e.comoSocioA.rpc('reordenar_dias', {
+      p_rutina_id: rutina,
+      p_ids: [dias[0], dias[1], ajeno!.id],
+    })
+    expect(error).not.toBeNull()
+  })
+
+  it('no lo puede hacer alguien que no puede editar la rutina', async () => {
+    const { error } = await e.comoSocioA2.rpc('reordenar_dias', {
+      p_rutina_id: rutina,
+      p_ids: [dias[0], dias[1], dias[2]],
+    })
+    expect(error).not.toBeNull()
+  })
+
+  it('reordena los ejercicios de un día', async () => {
+    const { data: ejercicios } = await admin
+      .from('ejercicios').select('id').limit(2)
+
+    const { data: creados } = await admin
+      .from('rutina_ejercicios')
+      .insert([
+        {
+          rutina_dia_id: dias[0], ejercicio_id: ejercicios![0].id,
+          orden: 1, series: 3, repeticiones: '10',
+        },
+        {
+          rutina_dia_id: dias[0], ejercicio_id: ejercicios![1].id,
+          orden: 2, series: 3, repeticiones: '10',
+        },
+      ])
+      .select('id, orden')
+    const ids = creados!.sort((a, b) => a.orden - b.orden).map((x) => x.id)
+
+    const { error } = await e.comoSocioA.rpc('reordenar_ejercicios', {
+      p_dia_id: dias[0],
+      p_ids: [ids[1], ids[0]],
+    })
+    expect(error).toBeNull()
+
+    const { data } = await admin
+      .from('rutina_ejercicios').select('id, orden')
+      .eq('rutina_dia_id', dias[0]).order('orden')
+    expect(data!.map((x) => x.id)).toEqual([ids[1], ids[0]])
+  })
+})
