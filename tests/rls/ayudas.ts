@@ -38,8 +38,16 @@ export interface Escenario {
   gymA: string
   gymB: string
   socioAId: string
+  socioA2Id: string
+  entrenadorAId: string
+  /** memberships.id del socio A. `rutinas.propietario_id` apunta acá, no a auth.users. */
+  socioAMembresiaId: string
+  socioA2MembresiaId: string
+  entrenadorAMembresiaId: string
   comoAdminA: SupabaseClient
   comoSocioA: SupabaseClient
+  comoSocioA2: SupabaseClient
+  comoEntrenadorA: SupabaseClient
   comoSocioB: SupabaseClient
   comoSuperadmin: SupabaseClient
 }
@@ -66,18 +74,27 @@ export async function crearEscenario(): Promise<Escenario> {
 
   const adminA = await crearUsuario(`admin-a-${sufijo}@ejemplo.com`)
   const socioA = await crearUsuario(`socio-a-${sufijo}@ejemplo.com`)
+  const socioA2 = await crearUsuario(`socio-a2-${sufijo}@ejemplo.com`)
+  const entrenadorA = await crearUsuario(`entrenador-a-${sufijo}@ejemplo.com`)
   const socioB = await crearUsuario(`socio-b-${sufijo}@ejemplo.com`)
   // Sin membresía en ningún gimnasio: lo que le da acceso es únicamente
   // es_superadmin, no pertenecer a A ni a B. Así el test de la rama
   // `or soy_superadmin()` no se confunde con el de pertenencia normal.
   const superadmin = await crearUsuario(`superadmin-${sufijo}@ejemplo.com`)
 
-  const { error: errorMem } = await admin.from('memberships').insert([
-    { gym_id: gymA, user_id: adminA.id, rol: 'admin' },
-    { gym_id: gymA, user_id: socioA.id, rol: 'socio' },
-    { gym_id: gymB, user_id: socioB.id, rol: 'socio' },
-  ])
+  const { data: membresias, error: errorMem } = await admin
+    .from('memberships')
+    .insert([
+      { gym_id: gymA, user_id: adminA.id, rol: 'admin' },
+      { gym_id: gymA, user_id: socioA.id, rol: 'socio' },
+      { gym_id: gymA, user_id: socioA2.id, rol: 'socio' },
+      { gym_id: gymA, user_id: entrenadorA.id, rol: 'entrenador' },
+      { gym_id: gymB, user_id: socioB.id, rol: 'socio' },
+    ])
+    .select('id, user_id')
   if (errorMem) throw errorMem
+
+  const membresiaDe = (userId: string) => membresias.find((m) => m.user_id === userId)!.id
 
   // El cliente admin saltea RLS: es la única forma de otorgar es_superadmin,
   // porque los grants de columna que agrega esta tarea se lo prohíben a
@@ -92,8 +109,15 @@ export async function crearEscenario(): Promise<Escenario> {
     gymA,
     gymB,
     socioAId: socioA.id,
+    socioA2Id: socioA2.id,
+    entrenadorAId: entrenadorA.id,
+    socioAMembresiaId: membresiaDe(socioA.id),
+    socioA2MembresiaId: membresiaDe(socioA2.id),
+    entrenadorAMembresiaId: membresiaDe(entrenadorA.id),
     comoAdminA: adminA.cliente,
     comoSocioA: socioA.cliente,
+    comoSocioA2: socioA2.cliente,
+    comoEntrenadorA: entrenadorA.cliente,
     comoSocioB: socioB.cliente,
     comoSuperadmin: superadmin.cliente,
   }

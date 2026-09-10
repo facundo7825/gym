@@ -260,6 +260,185 @@ export type Database = {
         }
         Relationships: []
       }
+      rutina_dias: {
+        Row: {
+          created_at: string
+          id: string
+          nombre: string
+          notas: string | null
+          orden: number
+          rutina_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          nombre: string
+          notas?: string | null
+          orden: number
+          rutina_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          nombre?: string
+          notas?: string | null
+          orden?: number
+          rutina_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rutina_dias_rutina_id_fkey"
+            columns: ["rutina_id"]
+            isOneToOne: false
+            referencedRelation: "rutinas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rutina_ejercicios: {
+        Row: {
+          created_at: string
+          descanso_seg: number | null
+          ejercicio_id: string
+          id: string
+          notas: string | null
+          orden: number
+          peso_sugerido_kg: number | null
+          repeticiones: string
+          rutina_dia_id: string
+          series: number
+        }
+        Insert: {
+          created_at?: string
+          descanso_seg?: number | null
+          ejercicio_id: string
+          id?: string
+          notas?: string | null
+          orden: number
+          peso_sugerido_kg?: number | null
+          repeticiones: string
+          rutina_dia_id: string
+          series: number
+        }
+        Update: {
+          created_at?: string
+          descanso_seg?: number | null
+          ejercicio_id?: string
+          id?: string
+          notas?: string | null
+          orden?: number
+          peso_sugerido_kg?: number | null
+          repeticiones?: string
+          rutina_dia_id?: string
+          series?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rutina_ejercicios_ejercicio_id_fkey"
+            columns: ["ejercicio_id"]
+            isOneToOne: false
+            referencedRelation: "ejercicios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rutina_ejercicios_rutina_dia_id_fkey"
+            columns: ["rutina_dia_id"]
+            isOneToOne: false
+            referencedRelation: "rutina_dias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rutinas: {
+        Row: {
+          asignada_por: string | null
+          creado_por: string | null
+          created_at: string
+          descripcion: string | null
+          estado: Database["public"]["Enums"]["estado_rutina"]
+          fecha_fin: string | null
+          fecha_inicio: string | null
+          gym_id: string
+          id: string
+          nivel: Database["public"]["Enums"]["nivel_rutina"]
+          nombre: string
+          objetivo: Database["public"]["Enums"]["objetivo_rutina"]
+          origen_id: string | null
+          propietario_id: string | null
+          tipo: Database["public"]["Enums"]["tipo_rutina"]
+        }
+        Insert: {
+          asignada_por?: string | null
+          creado_por?: string | null
+          created_at?: string
+          descripcion?: string | null
+          estado?: Database["public"]["Enums"]["estado_rutina"]
+          fecha_fin?: string | null
+          fecha_inicio?: string | null
+          gym_id: string
+          id?: string
+          nivel?: Database["public"]["Enums"]["nivel_rutina"]
+          nombre: string
+          objetivo?: Database["public"]["Enums"]["objetivo_rutina"]
+          origen_id?: string | null
+          propietario_id?: string | null
+          tipo: Database["public"]["Enums"]["tipo_rutina"]
+        }
+        Update: {
+          asignada_por?: string | null
+          creado_por?: string | null
+          created_at?: string
+          descripcion?: string | null
+          estado?: Database["public"]["Enums"]["estado_rutina"]
+          fecha_fin?: string | null
+          fecha_inicio?: string | null
+          gym_id?: string
+          id?: string
+          nivel?: Database["public"]["Enums"]["nivel_rutina"]
+          nombre?: string
+          objetivo?: Database["public"]["Enums"]["objetivo_rutina"]
+          origen_id?: string | null
+          propietario_id?: string | null
+          tipo?: Database["public"]["Enums"]["tipo_rutina"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rutinas_asignada_por_fkey"
+            columns: ["asignada_por"]
+            isOneToOne: false
+            referencedRelation: "memberships"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rutinas_creado_por_fkey"
+            columns: ["creado_por"]
+            isOneToOne: false
+            referencedRelation: "memberships"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rutinas_gym_id_fkey"
+            columns: ["gym_id"]
+            isOneToOne: false
+            referencedRelation: "gyms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rutinas_origen_id_fkey"
+            columns: ["origen_id"]
+            isOneToOne: false
+            referencedRelation: "rutinas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rutinas_propietario_id_fkey"
+            columns: ["propietario_id"]
+            isOneToOne: false
+            referencedRelation: "memberships"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       videos: {
         Row: {
           created_at: string
@@ -325,6 +504,7 @@ export type Database = {
     }
     Enums: {
       estado_membresia: "activo" | "inactivo"
+      estado_rutina: "activa" | "archivada"
       estado_video: "procesando" | "listo" | "error"
       grupo_muscular:
         | "pecho"
@@ -339,6 +519,13 @@ export type Database = {
         | "abdominales"
         | "antebrazo"
         | "cuerpo_completo"
+      nivel_rutina: "principiante" | "intermedio" | "avanzado"
+      objetivo_rutina:
+        | "fuerza"
+        | "hipertrofia"
+        | "resistencia"
+        | "perdida_grasa"
+        | "general"
       rol_membresia: "socio" | "entrenador" | "admin"
       tipo_equipamiento:
         | "barra"
@@ -349,6 +536,7 @@ export type Database = {
         | "banda"
         | "peso_corporal"
         | "otro"
+      tipo_rutina: "plantilla" | "activa"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -480,6 +668,7 @@ export const Constants = {
   public: {
     Enums: {
       estado_membresia: ["activo", "inactivo"],
+      estado_rutina: ["activa", "archivada"],
       estado_video: ["procesando", "listo", "error"],
       grupo_muscular: [
         "pecho",
@@ -495,6 +684,14 @@ export const Constants = {
         "antebrazo",
         "cuerpo_completo",
       ],
+      nivel_rutina: ["principiante", "intermedio", "avanzado"],
+      objetivo_rutina: [
+        "fuerza",
+        "hipertrofia",
+        "resistencia",
+        "perdida_grasa",
+        "general",
+      ],
       rol_membresia: ["socio", "entrenador", "admin"],
       tipo_equipamiento: [
         "barra",
@@ -506,6 +703,7 @@ export const Constants = {
         "peso_corporal",
         "otro",
       ],
+      tipo_rutina: ["plantilla", "activa"],
     },
   },
 } as const
