@@ -202,19 +202,46 @@ edita.
 
 ### Las funciones
 
-Cuatro helpers `security definer` con `set search_path = ''`, en la línea de
-`mis_gyms()` y `mi_rol()`, más uno que hoy falta:
+Cinco helpers `security definer` con `set search_path = ''`, en la línea de
+`mis_gyms()` y `mi_rol()`, más dos que hoy faltan:
 
 | Función | Qué contesta |
 |---|---|
 | `mi_membresia(gym_id)` | El `memberships.id` del que llama en ese gimnasio |
-| `puedo_ver_rutina(rutina_id)` | La regla de lectura de arriba |
+| `puedo_ver_rutina_fila(gym_id, tipo, propietario_id)` | La regla de lectura de arriba, recibiendo las columnas en vez de un id |
+| `puedo_ver_rutina(rutina_id)` | Busca la fila por id y delega en la anterior |
 | `puedo_editar_rutina(rutina_id)` | La tabla de arriba |
 | `puedo_ver_dia(dia_id)` / `puedo_editar_dia(dia_id)` | Resuelven el día a su rutina y delegan |
 
 `mi_membresia()` es nueva: las políticas de la etapa 0 y 1 nunca necesitaron el id
 de la membresía, solo el rol. Acá hace falta porque `propietario_id` apunta a
 `memberships`, no a `auth.users`.
+
+**La regla de lectura está partida en dos funciones, y no por prolijidad.** El
+diseño natural es un único `puedo_ver_rutina(rutina_id)` que busca la fila por
+id, como hacen `puedo_editar_rutina()` y el resto de los helpers de este
+documento. Con esa versión, la política `rutinas_leer` funcionaba para
+`select` normal pero rompía `insert ... returning`: PostgREST hace ese
+`returning` en cada `.insert().select()`, y `tomar_rutina()` lo necesita para
+devolver la rutina recién copiada. RETURNING exige que la fila nueva pase la
+política de `select`, y esa política corre dentro de la misma sentencia que
+inserta la fila —sobre el snapshot de esa sentencia, donde la fila todavía no
+existe—. Una función que busca "la rutina con este id" no la encuentra ahí, así
+que la política le negaba el RETURNING a su propio INSERT con `42501`. No era
+un caso de borde: rompía la copia de rutinas y cualquier `.insert().select()`
+del panel o la app sobre `rutinas`.
+
+La solución es `puedo_ver_rutina_fila(gym_id, tipo, propietario_id)`: recibe
+las columnas en lugar de salir a buscarlas, así que evalúa la regla igual de
+bien sobre una fila vieja que sobre la fila que la sentencia está creando en
+este momento. Es la que usa la política `rutinas_leer`. `puedo_ver_rutina(id)`
+se mantiene, ahora como una capa fina que busca la fila por id y delega en
+`puedo_ver_rutina_fila()`; la siguen usando `puedo_ver_dia()` y, a través de
+ella, las políticas de `rutina_dias` y `rutina_ejercicios` —que no tienen el
+problema de arriba porque miran a su padre, no a la fila que ellas mismas
+insertan, y ese padre ya quedó commiteado dentro de la misma transacción antes
+de que la hija se inserte. La regla en sí sigue escrita una sola vez, adentro
+de `puedo_ver_rutina_fila()`.
 
 Los dos helpers de día existen para que la política de `rutina_ejercicios` no
 tenga que subir dos niveles a mano. Son de una línea y delegan; la regla sigue
@@ -227,9 +254,10 @@ volvería a disparar la política. No hay recursión entre tablas: la política 
 
 ### Las políticas
 
-`rutinas`: `select` con `puedo_ver_rutina()`, y `update` con
-`puedo_editar_rutina()` en `using` **y** en `with check`, explícito, por el mismo
-motivo documentado en `maquinas_editar`.
+`rutinas`: `select` con `puedo_ver_rutina_fila(gym_id, tipo, propietario_id)` —no
+con `puedo_ver_rutina()`, por el gotcha de RETURNING explicado arriba—, y
+`update` con `puedo_editar_rutina()` en `using` **y** en `with check`, explícito,
+por el mismo motivo documentado en `maquinas_editar`.
 
 El `insert` no puede usar `puedo_editar_rutina()` —la fila todavía no existe— y
 además carga la coherencia de `asignada_por`, que es lo único que impide que un
@@ -246,13 +274,32 @@ create policy rutinas_crear on rutinas for insert with check (
     -- Activa sin asignar: solo para mí mismo.
     when asignada_por is null then
       propietario_id = mi_membresia(gym_id)
-    -- Activa asignada: la asigna el personal, y firma con su propia membresía.
+    -- Activa asignada: la asigna el personal, firma con su propia membresía,
+    -- y a un socio que sea una membresía activa de este mismo gimnasio.
     else
       mi_rol(gym_id) in ('entrenador', 'admin')
       and asignada_por = mi_membresia(gym_id)
+      and exists (
+        select 1 from memberships m
+        where m.id = propietario_id and m.gym_id = gym_id and m.estado = 'activo'
+      )
   end
 );
 ```
+
+El `exists` final falta en las otras dos ramas porque ahí `propietario_id` ya
+queda atado a `gym_id` por otro camino: en la plantilla es nulo, y en la
+"activa sin asignar" es `mi_membresia(gym_id)`, que por construcción ya es una
+membresía activa de ese gimnasio. La rama "activa asignada" es la única donde
+quien inserta elige `propietario_id` libremente, sin pasar por
+`mi_membresia()` — y sin el `exists`, un entrenador podía poner ahí cualquier
+uuid de `memberships`, de otro gimnasio o de un socio dado de baja, y la
+política lo dejaba pasar igual. El resultado era una rutina huérfana:
+inaccesible para el supuesto dueño —"leer" exige que
+`propietario_id = mi_membresia(gym_id)`, y eso nunca es cierto si esa membresía
+es de otro gimnasio— y visible solo para el entrenador que la creó. El
+`exists` cierra ese hueco exigiendo que `propietario_id` sea, en los hechos,
+una membresía activa del mismo `gym_id` que la rutina.
 
 Con esa política escrita, la coherencia de `asignada_por` no depende de que todo
 el mundo pase por `tomar_rutina`. Y no puede depender de eso: el armador crea
