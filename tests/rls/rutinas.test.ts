@@ -244,6 +244,27 @@ describe('permisos de rutinas', () => {
     expect(error).not.toBeNull()
   })
 
+  it('el entrenador puede asignarle una rutina a un socio de su gimnasio', async () => {
+    const { error } = await e.comoEntrenadorA.from('rutinas').insert({
+      gym_id: e.gymA, nombre: 'Asignada por el entrenador', tipo: 'activa',
+      propietario_id: e.socioA2MembresiaId,
+      asignada_por: e.entrenadorAMembresiaId,
+    })
+    expect(error).toBeNull()
+  })
+
+  it('el entrenador NO puede asignarle una rutina a alguien de otro gimnasio', async () => {
+    const { data: membresiaGymB } = await admin
+      .from('memberships').select('id').eq('gym_id', e.gymB).single()
+
+    const { error } = await e.comoEntrenadorA.from('rutinas').insert({
+      gym_id: e.gymA, nombre: 'Asignada trucha', tipo: 'activa',
+      propietario_id: membresiaGymB!.id,
+      asignada_por: e.entrenadorAMembresiaId,
+    })
+    expect(error).not.toBeNull()
+  })
+
   it('no se puede agregar a una rutina un ejercicio de otro gimnasio', async () => {
     const { data: ejercicioB } = await admin
       .from('ejercicios')

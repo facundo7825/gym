@@ -116,6 +116,15 @@ create policy rutinas_crear on rutinas for insert with check (
     else
       mi_rol(gym_id) in ('entrenador', 'admin')
       and asignada_por = mi_membresia(gym_id)
+      -- Sin esto, el entrenador podía poner en propietario_id CUALQUIER uuid
+      -- de memberships —de otro gimnasio, o de un socio que no es de este—
+      -- y la rutina quedaba huérfana: nadie a quien se la asignaron puede
+      -- verla, solo el personal que la creó. Mismo patrón de coherencia
+      -- gym↔membresía que la rama anterior aplica vía mi_membresia(gym_id).
+      and exists (
+        select 1 from memberships m
+        where m.id = propietario_id and m.gym_id = gym_id and m.estado = 'activo'
+      )
   end
 );
 
@@ -144,9 +153,11 @@ create policy rutina_ejercicios_leer on rutina_ejercicios for select
   using (puedo_ver_dia(rutina_dia_id));
 
 -- El exists contra ejercicios cierra un hueco que las tablas de la etapa 1 no
--- tenían: sin él, alguien podría meter en su propia rutina un ejercicio
--- privado de otro gimnasio adivinando el UUID, y después leerle el nombre y
--- el video a través del join de la rutina.
+-- tenían: sin él, alguien podría insertar una referencia a un ejercicio
+-- privado de otro gimnasio adivinando el UUID, aunque no pueda verlo. La
+-- lectura posterior —directa o vía embed de PostgREST— ya queda cubierta por
+-- la RLS de select de ejercicios; este chequeo protege el insert en sí, no
+-- una fuga de lectura.
 create policy rutina_ejercicios_crear on rutina_ejercicios for insert
   with check (
     puedo_editar_dia(rutina_dia_id)
