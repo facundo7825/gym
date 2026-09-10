@@ -54,6 +54,35 @@ export default function PantallaDia() {
   // pantalla tiene que mostrar el ejercicio recién agregado.
   useFocusEffect(useCallback(() => { cargar() }, [cargar]))
 
+  // El diseño resigna arrastrar un ejercicio de un día a otro justamente
+  // porque se puede sacar y volver a agregar. Sin esto, el ejercicio agregado
+  // por error se quedaba para siempre.
+  const borrar = (ejercicio: EjercicioEnDia) => {
+    Alert.alert(
+      'Borrar ejercicio',
+      `¿Sacar "${ejercicio.ejercicios?.nombre ?? 'este ejercicio'}" del día?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Borrar',
+          style: 'destructive',
+          onPress: async () => {
+            // El .select() no es decorativo: un delete que RLS niega no
+            // devuelve error, devuelve cero filas. Sin mirar cuántas
+            // volvieron, la pantalla lo sacaría de la lista y mentiría.
+            const { data, error } = await supabase
+              .from('rutina_ejercicios').delete().eq('id', ejercicio.id).select('id')
+            if (error || !data?.length) {
+              Alert.alert('No pudimos borrar el ejercicio')
+              return
+            }
+            setEjercicios((prev) => prev.filter((e) => e.id !== ejercicio.id))
+          },
+        },
+      ],
+    )
+  }
+
   // Mueve el ejercicio local y manda la lista COMPLETA en el orden final:
   // reordenar_ejercicios exige una permutación exacta, nunca solo lo que se
   // movió.
@@ -90,7 +119,9 @@ export default function PantallaDia() {
         data={ejercicios}
         keyExtractor={(e) => e.id}
         onReorder={reordenar}
-        renderItem={({ item }) => <FilaEjercicio ejercicio={item} />}
+        renderItem={({ item }) => (
+          <FilaEjercicio ejercicio={item} onBorrar={() => borrar(item)} />
+        )}
         ListEmptyComponent={
           <Text style={estilos.vacio}>Todavía no agregaste ejercicios.</Text>
         }
@@ -107,7 +138,9 @@ export default function PantallaDia() {
 
 // Componente aparte: useReorderableDrag solo se puede usar dentro de un ítem
 // de la lista.
-function FilaEjercicio({ ejercicio }: { ejercicio: EjercicioEnDia }) {
+function FilaEjercicio({ ejercicio, onBorrar }: {
+  ejercicio: EjercicioEnDia; onBorrar: () => void
+}) {
   const drag = useReorderableDrag()
 
   return (
@@ -129,6 +162,9 @@ function FilaEjercicio({ ejercicio }: { ejercicio: EjercicioEnDia }) {
           </Pressable>
         </Link>
       )}
+      <Pressable onPress={onBorrar} hitSlop={8}>
+        <Text style={estilos.borrar}>✕</Text>
+      </Pressable>
     </View>
   )
 }
@@ -147,6 +183,7 @@ const estilos = StyleSheet.create({
   nombre: { fontSize: 16 },
   sub: { color: '#777', fontSize: 13, marginTop: 2 },
   video: { fontSize: 18 },
+  borrar: { color: '#b00', fontSize: 16, paddingHorizontal: 4 },
   vacio: { textAlign: 'center', color: '#777', marginTop: 32, paddingHorizontal: 24 },
   botonAgregar: {
     backgroundColor: '#111', margin: 16, borderRadius: 8,

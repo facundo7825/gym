@@ -1,17 +1,20 @@
 import { useCallback, useState } from 'react'
 import {
-  ActivityIndicator, Alert, FlatList, Pressable,
+  ActivityIndicator, FlatList, Pressable,
   StyleSheet, Text, View,
 } from 'react-native'
 import { Link, Stack, useFocusEffect, useRouter } from 'expo-router'
 import { etiqueta, type NivelRutina, type ObjetivoRutina } from '@gym/core'
 import { supabase } from '@/lib/supabase'
+import { tomarRutina } from '@/lib/tomar-rutina'
 
 interface Rutina {
   id: string
+  gym_id: string
   nombre: string
   objetivo: ObjetivoRutina
   nivel: NivelRutina
+  estado: 'activa' | 'archivada'
   asignada_por: string | null
   origen_id: string | null
   tipo: 'plantilla' | 'activa'
@@ -21,6 +24,7 @@ interface Rutina {
 export default function Rutinas() {
   const router = useRouter()
   const [solapa, setSolapa] = useState<'mias' | 'catalogo'>('mias')
+  const [archivadas, setArchivadas] = useState(false)
   const [mias, setMias] = useState<Rutina[]>([])
   const [catalogo, setCatalogo] = useState<Rutina[]>([])
   const [cargando, setCargando] = useState(true)
@@ -37,10 +41,13 @@ export default function Rutinas() {
       // activas propias (o las que el entrenador armó y asignó). El filtro
       // por tipo acá es solo para separar las dos solapas, no un control de
       // acceso.
+      //
+      // No filtra por estado en la consulta: "Mis rutinas" tiene el filtro de
+      // archivadas, así que las dos hacen falta. Del catálogo sí se sacan las
+      // archivadas, que es lo que significa archivar una plantilla.
       supabase
         .from('rutinas')
-        .select('id, nombre, objetivo, nivel, asignada_por, origen_id, tipo, rutina_dias(id)')
-        .eq('estado', 'activa')
+        .select('id, gym_id, nombre, objetivo, nivel, estado, asignada_por, origen_id, tipo, rutina_dias(id)')
         .order('created_at', { ascending: false })
         .then(({ data, error }) => {
           if (!vivo) return
@@ -49,7 +56,7 @@ export default function Rutinas() {
           } else {
             const todas = (data ?? []) as Rutina[]
             setMias(todas.filter((r) => r.tipo === 'activa'))
-            setCatalogo(todas.filter((r) => r.tipo === 'plantilla'))
+            setCatalogo(todas.filter((r) => r.tipo === 'plantilla' && r.estado === 'activa'))
           }
           setCargando(false)
         })
@@ -58,37 +65,9 @@ export default function Rutinas() {
     }, []),
   )
 
-  const tomar = async (plantillaId: string) => {
-    const { data: membresia } = await supabase
-      .from('memberships')
-      .select('id')
-      .order('created_at')
-      .limit(1)
-      .maybeSingle()
-
-    if (!membresia) {
-      Alert.alert('No pudimos identificar tu membresía', 'Probá cerrar sesión y volver a entrar.')
-      return
-    }
-
-    const { data: nuevaId, error } = await supabase.rpc('tomar_rutina', {
-      p_plantilla_id: plantillaId,
-      p_propietario_id: membresia.id,
-    })
-
-    // 23505 = unique_violation: el índice único dice que ya tenés una copia
-    // activa de esta plantilla. No es un error rojo — tocar dos veces, o
-    // tocar con mala señal y reintentar, es algo razonable que hace la gente.
-    if (error?.code === '23505') {
-      Alert.alert('Ya tenés esta rutina', 'Está en "Mis rutinas".')
-      return
-    }
-    if (error) {
-      Alert.alert('No pudimos agregar la rutina', 'Probá de nuevo.')
-      return
-    }
-
-    router.push(`/(tabs)/rutinas/${nuevaId}`)
+  const tomar = async (plantillaId: string, gymId: string) => {
+    const nuevaId = await tomarRutina(plantillaId, gymId)
+    if (nuevaId) router.push(`/(tabs)/rutinas/${nuevaId}`)
   }
 
   if (cargando) {
@@ -98,7 +77,9 @@ export default function Rutinas() {
     return <View style={estilos.centrado}><Text style={estilos.error}>{error}</Text></View>
   }
 
-  const visibles = solapa === 'mias' ? mias : catalogo
+  const visibles = solapa === 'mias'
+    ? mias.filter((r) => (archivadas ? r.estado === 'archivada' : r.estado === 'activa'))
+    : catalogo
 
   return (
     <View style={{ flex: 1 }}>
@@ -111,14 +92,26 @@ export default function Rutinas() {
           onPress={() => setSolapa('catalogo')} />
       </View>
 
+      {solapa === 'mias' && (
+        <View style={estilos.filtro}>
+          <Pressable onPress={() => setArchivadas((v) => !v)} hitSlop={8}>
+            <Text style={estilos.filtroTexto}>
+              {archivadas ? '‹ Ver las activas' : 'Ver las archivadas ›'}
+            </Text>
+          </Pressable>
+        </View>
+      )}
+
       <FlatList
         data={visibles}
         keyExtractor={(x) => x.id}
         ListEmptyComponent={
           <Text style={estilos.vacio}>
-            {solapa === 'mias'
-              ? 'Todavía no tenés rutinas. Tomá una del catálogo o armate una.'
-              : 'Tu gimnasio todavía no cargó rutinas.'}
+            {solapa === 'catalogo'
+              ? 'Tu gimnasio todavía no cargó rutinas.'
+              : archivadas
+                ? 'No tenés rutinas archivadas.'
+                : 'Todavía no tenés rutinas. Tomá una del catálogo o armate una.'}
           </Text>
         }
         renderItem={({ item }) => (
@@ -133,7 +126,7 @@ export default function Rutinas() {
               </Pressable>
             </Link>
             {solapa === 'catalogo' && (
-              <Pressable style={estilos.boton} onPress={() => tomar(item.id)}>
+              <Pressable style={estilos.boton} onPress={() => tomar(item.id, item.gym_id)}>
                 <Text style={estilos.botonTexto}>Tomar</Text>
               </Pressable>
             )}
@@ -168,6 +161,8 @@ const estilos = StyleSheet.create({
   solapaActiva: { backgroundColor: '#111' },
   solapaTexto: { color: '#333' },
   solapaTextoActivo: { color: '#fff' },
+  filtro: { paddingHorizontal: 16, paddingBottom: 8 },
+  filtroTexto: { color: '#555', fontSize: 13 },
   fila: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     paddingHorizontal: 16, paddingVertical: 14,
