@@ -510,6 +510,14 @@ export type Database = {
       puedo_editar_rutina: { Args: { p_rutina_id: string }; Returns: boolean }
       puedo_ver_dia: { Args: { p_dia_id: string }; Returns: boolean }
       puedo_ver_rutina: { Args: { p_rutina_id: string }; Returns: boolean }
+      puedo_ver_rutina_fila: {
+        Args: {
+          p_gym_id: string
+          p_propietario_id: string
+          p_tipo: Database["public"]["Enums"]["tipo_rutina"]
+        }
+        Returns: boolean
+      }
       soy_superadmin: { Args: never; Returns: boolean }
       tomar_rutina: {
         Args: { p_plantilla_id: string; p_propietario_id: string }

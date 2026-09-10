@@ -12,17 +12,6 @@
 -- pasa por RLS, así que no se puede copiar una de otro gimnasio ni adivinando
 -- el UUID, y los insert pasan por rutinas_crear, que es lo que sostiene la
 -- coherencia de asignada_por.
---
--- Ninguno de los insert de acá abajo usa `returning id`. No es estilo: con
--- RLS, `insert ... returning` le suma al with check un chequeo automático de
--- la política de select sobre la fila recién creada, y puedo_ver_rutina() es
--- security definer —a propósito, ver 0007— así que Postgres no puede
--- incrustarla en el plan del insert: corre como una subconsulta aparte, con
--- el snapshot de ANTES de que este insert escribiera nada. Esa subconsulta
--- nunca ve la fila que el propio insert acaba de crear, así que el returning
--- falla siempre con "viola la política de seguridad", pase lo que pase en el
--- with check. La salida es no depender de returning: se genera el id acá y se
--- inserta explícito.
 -- ---------------------------------------------------------------------------
 
 create or replace function public.copiar_rutina(
@@ -49,10 +38,9 @@ begin
     where rutina_id = p_origen_id
     order by orden
   loop
-    v_dia_nuevo := gen_random_uuid();
-
-    insert into public.rutina_dias (id, rutina_id, orden, nombre, notas)
-    values (v_dia_nuevo, p_nueva_id, d.orden, d.nombre, d.notas);
+    insert into public.rutina_dias (rutina_id, orden, nombre, notas)
+    values (p_nueva_id, d.orden, d.nombre, d.notas)
+    returning id into v_dia_nuevo;
 
     insert into public.rutina_ejercicios (
       rutina_dia_id, ejercicio_id, orden, series, repeticiones,
@@ -106,17 +94,16 @@ begin
     v_asignada_por := v_mi_membresia;
   end if;
 
-  v_nueva_id := gen_random_uuid();
-
   insert into public.rutinas (
-    id, gym_id, nombre, descripcion, objetivo, nivel, tipo,
+    gym_id, nombre, descripcion, objetivo, nivel, tipo,
     propietario_id, origen_id, creado_por, asignada_por, fecha_inicio
   ) values (
-    v_nueva_id, v_plantilla.gym_id, v_plantilla.nombre, v_plantilla.descripcion,
+    v_plantilla.gym_id, v_plantilla.nombre, v_plantilla.descripcion,
     v_plantilla.objetivo, v_plantilla.nivel, 'activa',
     p_propietario_id, v_plantilla.id, v_mi_membresia, v_asignada_por,
     current_date
-  );
+  )
+  returning id into v_nueva_id;
 
   perform public.copiar_rutina(v_plantilla.id, v_nueva_id);
   return v_nueva_id;
@@ -146,15 +133,14 @@ begin
     raise exception 'No encontramos esa rutina' using errcode = 'P0002';
   end if;
 
-  v_nueva_id := gen_random_uuid();
-
   insert into public.rutinas (
-    id, gym_id, nombre, descripcion, objetivo, nivel, tipo, creado_por
+    gym_id, nombre, descripcion, objetivo, nivel, tipo, creado_por
   ) values (
-    v_nueva_id, v_origen.gym_id, v_origen.nombre || ' (copia)', v_origen.descripcion,
+    v_origen.gym_id, v_origen.nombre || ' (copia)', v_origen.descripcion,
     v_origen.objetivo, v_origen.nivel, 'plantilla',
     public.mi_membresia(v_origen.gym_id)
-  );
+  )
+  returning id into v_nueva_id;
 
   perform public.copiar_rutina(v_origen.id, v_nueva_id);
   return v_nueva_id;

@@ -27,6 +27,36 @@ $$;
 -- Las plantillas las ve todo el gimnasio: son el catálogo. Una rutina activa
 -- la ven su propietario y el personal — eso es lo que habilita "ver las
 -- rutinas del socio" en el panel sin una política aparte.
+--
+-- Recibe las columnas y no el id, a propósito: así la política de SELECT
+-- puede evaluarse sobre la fila que un INSERT ... RETURNING acaba de crear.
+-- Con una función que busca por id, ese RETURNING falla con 42501 — la
+-- búsqueda corre con el snapshot de la sentencia y la fila nueva todavía no
+-- está ahí. La regla de lectura sigue escrita una sola vez acá adentro;
+-- puedo_ver_rutina(id) pasa a delegarle.
+create or replace function public.puedo_ver_rutina_fila(
+  p_gym_id         uuid,
+  p_tipo           public.tipo_rutina,
+  p_propietario_id uuid
+) returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select p_gym_id in (select public.mis_gyms())
+     and (
+       p_tipo = 'plantilla'
+       or p_propietario_id = public.mi_membresia(p_gym_id)
+       or public.mi_rol(p_gym_id) in ('entrenador', 'admin')
+     )
+$$;
+
+-- Se mantiene para puedo_ver_dia() y puedo_editar_dia(): la política de
+-- rutina_dias y rutina_ejercicios mira al padre, y ese padre lo insertó una
+-- sentencia anterior de la misma transacción — ya está commiteado dentro de
+-- la transacción y es visible, así que buscarlo por id no tiene el problema
+-- de arriba.
 create or replace function public.puedo_ver_rutina(p_rutina_id uuid)
 returns boolean
 language sql
@@ -34,12 +64,7 @@ stable
 security definer
 set search_path = ''
 as $$
-  select r.gym_id in (select public.mis_gyms())
-     and (
-       r.tipo = 'plantilla'
-       or r.propietario_id = public.mi_membresia(r.gym_id)
-       or public.mi_rol(r.gym_id) in ('entrenador', 'admin')
-     )
+  select public.puedo_ver_rutina_fila(r.gym_id, r.tipo, r.propietario_id)
   from public.rutinas r
   where r.id = p_rutina_id
 $$;
@@ -100,7 +125,7 @@ alter table rutina_dias       enable row level security;
 alter table rutina_ejercicios enable row level security;
 
 create policy rutinas_leer on rutinas for select
-  using (puedo_ver_rutina(id));
+  using (puedo_ver_rutina_fila(gym_id, tipo, propietario_id));
 
 -- El insert no puede usar puedo_editar_rutina(): la fila todavía no existe.
 -- Además carga la coherencia de asignada_por, que es lo único que impide que

@@ -512,3 +512,30 @@ describe('tomar y duplicar rutinas', () => {
     expect(error).not.toBeNull()
   })
 })
+
+// Red para el bug de 42501 que encontramos en esta tarea: insert ... returning
+// exige que la fila nueva pase la política de SELECT. Si esa política buscara
+// la fila por id (como hacía puedo_ver_rutina antes del arreglo), el
+// RETURNING siempre fallaba, porque esa búsqueda corre con el snapshot de la
+// sentencia y todavía no ve la fila que la propia sentencia está insertando.
+// rutinas_leer ahora evalúa puedo_ver_rutina_fila(gym_id, tipo, propietario_id)
+// directo sobre las columnas de la fila, sin volver a buscarla — así un
+// insert con .select() (lo que hacen las pantallas de las tareas 7 a 11 para
+// conseguir el id recién creado) funciona.
+describe('insert con returning sobre rutinas', () => {
+  it('un insert con select devuelve la fila recién creada', async () => {
+    const e = await crearEscenario()
+
+    const { data, error } = await e.comoSocioA
+      .from('rutinas')
+      .insert({
+        gym_id: e.gymA, nombre: 'La que me armo', tipo: 'activa',
+        propietario_id: e.socioAMembresiaId,
+      })
+      .select('id')
+      .single()
+
+    expect(error).toBeNull()
+    expect(data!.id).toBeDefined()
+  })
+})
