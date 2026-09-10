@@ -336,6 +336,14 @@ describe('columnas inmutables de rutinas', () => {
     const { error: errorTipo } = await admin
       .from('rutinas').update({ tipo: 'activa' }).eq('id', plantilla)
     expect(errorTipo).not.toBeNull()
+
+    // Se mira el código y no solo que haya error: el trigger tira 42501, y
+    // pasar una plantilla a 'activa' tiene además el check
+    // rutinas_propietario_segun_tipo (23514) esperándola más atrás. Si
+    // alguien sacara `tipo` del trigger, el test seguiría verde por esa otra
+    // vía y la regresión pasaría sin que nadie la vea.
+    expect(errorGym!.code).toBe('42501')
+    expect(errorTipo!.code).toBe('42501')
   })
 
   it('origen_id no se puede repuntar a otra rutina', async () => {
@@ -544,6 +552,9 @@ describe('reordenar', () => {
   let e: Escenario
   let rutina: string
   let dias: string[]
+  // La carga el primer test de ejercicios y la usan los cuatro rechazos de
+  // abajo, como los tests de días se apoyan en el orden que dejó el anterior.
+  let ejerciciosDelDia: string[]
 
   beforeAll(async () => {
     e = await crearEscenario()
@@ -654,5 +665,244 @@ describe('reordenar', () => {
       .from('rutina_ejercicios').select('id, orden')
       .eq('rutina_dia_id', dias[0]).order('orden')
     expect(data!.map((x) => x.id)).toEqual([ids[1], ids[0]])
+
+    ejerciciosDelDia = [ids[1], ids[0]]
+  })
+
+  // Los mismos cuatro rechazos que arriba, pero sobre reordenar_ejercicios:
+  // es otra función, con su propia copia de la validación, y una permutación
+  // mal verificada acá deja exactamente los mismos huecos en el orden.
+  it('los ejercicios: rechaza una lista incompleta', async () => {
+    const { error } = await e.comoSocioA.rpc('reordenar_ejercicios', {
+      p_dia_id: dias[0],
+      p_ids: [ejerciciosDelDia[0]],
+    })
+    expect(error).not.toBeNull()
+  })
+
+  it('los ejercicios: rechaza una lista con repetidos', async () => {
+    const { error } = await e.comoSocioA.rpc('reordenar_ejercicios', {
+      p_dia_id: dias[0],
+      p_ids: [ejerciciosDelDia[0], ejerciciosDelDia[0]],
+    })
+    expect(error).not.toBeNull()
+  })
+
+  it('los ejercicios: rechaza uno que no es de este día', async () => {
+    const { data: ejercicio } = await admin
+      .from('ejercicios').select('id').limit(1).single()
+    const { data: ajeno } = await admin
+      .from('rutina_ejercicios')
+      .insert({
+        rutina_dia_id: dias[1], ejercicio_id: ejercicio!.id,
+        orden: 1, series: 3, repeticiones: '10',
+      })
+      .select('id').single()
+
+    const { error } = await e.comoSocioA.rpc('reordenar_ejercicios', {
+      p_dia_id: dias[0],
+      p_ids: [ejerciciosDelDia[0], ajeno!.id],
+    })
+    expect(error).not.toBeNull()
+  })
+
+  it('los ejercicios: no los reordena quien no puede editar la rutina', async () => {
+    const { error } = await e.comoSocioA2.rpc('reordenar_ejercicios', {
+      p_dia_id: dias[0],
+      p_ids: [ejerciciosDelDia[1], ejerciciosDelDia[0]],
+    })
+    expect(error).not.toBeNull()
+  })
+})
+
+// Prioridad 1 de la sección 9 del diseño: "tabla por tabla que ninguno lee ni
+// escribe lo del otro. Con atención a las hijas, que es donde es fácil que se
+// escape porque no tienen gym_id propio."
+//
+// La lectura de las hijas ya está cubierta más arriba. Lo que faltaba era la
+// ESCRITURA negada: hasta acá, casi todo lo que toca rutina_dias y
+// rutina_ejercicios pasa por `admin` —que saltea RLS— o por las RPC, así que
+// las políticas de insert, update y delete de las dos hijas no se probaban
+// desde una sesión de usuario que no tuviera permiso.
+describe('escritura negada sobre las tablas hijas', () => {
+  let e: Escenario
+  let plantillaA: string
+  let rutinaDelSocio: string
+  let diaDelSocio: string
+  let ejercicioEnElDia: string
+  let ejercicioGlobal: string
+  let otroEjercicioGlobal: string
+  let ejercicioDelB: string
+
+  beforeAll(async () => {
+    e = await crearEscenario()
+
+    const { data: globales } = await admin
+      .from('ejercicios').select('id').is('gym_id', null).limit(2)
+    ejercicioGlobal = globales![0].id
+    otroEjercicioGlobal = globales![1].id
+
+    const { data: ejB } = await admin
+      .from('ejercicios')
+      .insert({
+        gym_id: e.gymB, nombre: 'Privado del B',
+        grupo_muscular: 'pecho', equipamiento: 'barra',
+      })
+      .select('id').single()
+    ejercicioDelB = ejB!.id
+
+    const { data: p } = await admin
+      .from('rutinas')
+      .insert({ gym_id: e.gymA, nombre: 'Plantilla del gym', tipo: 'plantilla' })
+      .select('id').single()
+    plantillaA = p!.id
+
+    const { data: r } = await admin
+      .from('rutinas')
+      .insert({
+        gym_id: e.gymA, nombre: 'La del socio A', tipo: 'activa',
+        propietario_id: e.socioAMembresiaId,
+      })
+      .select('id').single()
+    rutinaDelSocio = r!.id
+
+    const { data: d } = await admin
+      .from('rutina_dias')
+      .insert({ rutina_id: rutinaDelSocio, orden: 1, nombre: 'Día 1' })
+      .select('id').single()
+    diaDelSocio = d!.id
+
+    const { data: re } = await admin
+      .from('rutina_ejercicios')
+      .insert({
+        rutina_dia_id: diaDelSocio, ejercicio_id: ejercicioGlobal,
+        orden: 1, series: 3, repeticiones: '10',
+      })
+      .select('id').single()
+    ejercicioEnElDia = re!.id
+  })
+
+  // --- insert --------------------------------------------------------------
+
+  it('el socio del gimnasio B no puede colgarle un día a una rutina del A', async () => {
+    const { error: enLaActiva } = await e.comoSocioB.from('rutina_dias').insert({
+      rutina_id: rutinaDelSocio, orden: 9, nombre: 'Metido desde el B',
+    })
+    expect(enLaActiva).not.toBeNull()
+
+    const { error: enLaPlantilla } = await e.comoSocioB.from('rutina_dias').insert({
+      rutina_id: plantillaA, orden: 9, nombre: 'Metido desde el B',
+    })
+    expect(enLaPlantilla).not.toBeNull()
+  })
+
+  it('el socio no puede agregarle un día a una plantilla: la lee, no la escribe', async () => {
+    const { error } = await e.comoSocioA.from('rutina_dias').insert({
+      rutina_id: plantillaA, orden: 9, nombre: 'Día que no me toca',
+    })
+    expect(error).not.toBeNull()
+  })
+
+  it('otro socio del mismo gimnasio no puede meterle un ejercicio a un día ajeno', async () => {
+    const { error } = await e.comoSocioA2.from('rutina_ejercicios').insert({
+      rutina_dia_id: diaDelSocio, ejercicio_id: ejercicioGlobal,
+      orden: 9, series: 3, repeticiones: '10',
+    })
+    expect(error).not.toBeNull()
+  })
+
+  it('el socio del gimnasio B tampoco puede meterle un ejercicio a un día del A', async () => {
+    const { error } = await e.comoSocioB.from('rutina_ejercicios').insert({
+      rutina_dia_id: diaDelSocio, ejercicio_id: ejercicioGlobal,
+      orden: 9, series: 3, repeticiones: '10',
+    })
+    expect(error).not.toBeNull()
+  })
+
+  // --- delete --------------------------------------------------------------
+  //
+  // Un delete que la política niega no devuelve error: devuelve cero filas.
+  // Por eso acá se mira lo que volvió del .select() y, además, que la fila
+  // siga estando.
+
+  it('otro socio no puede borrar un día ajeno', async () => {
+    const { data, error } = await e.comoSocioA2
+      .from('rutina_dias').delete().eq('id', diaDelSocio).select('id')
+    expect(error).toBeNull()
+    expect(data ?? []).toHaveLength(0)
+
+    const { data: sigue } = await admin
+      .from('rutina_dias').select('id').eq('id', diaDelSocio)
+    expect(sigue).toHaveLength(1)
+  })
+
+  it('otro socio no puede borrar un ejercicio de un día ajeno', async () => {
+    const { data, error } = await e.comoSocioA2
+      .from('rutina_ejercicios').delete().eq('id', ejercicioEnElDia).select('id')
+    expect(error).toBeNull()
+    expect(data ?? []).toHaveLength(0)
+
+    const { data: sigue } = await admin
+      .from('rutina_ejercicios').select('id').eq('id', ejercicioEnElDia)
+    expect(sigue).toHaveLength(1)
+  })
+
+  it('el socio del gimnasio B no puede borrar un día del A', async () => {
+    const { data, error } = await e.comoSocioB
+      .from('rutina_dias').delete().eq('id', diaDelSocio).select('id')
+    expect(error).toBeNull()
+    expect(data ?? []).toHaveLength(0)
+  })
+
+  // --- update --------------------------------------------------------------
+
+  it('otro socio no puede renombrarle un día ajeno', async () => {
+    const { data, error } = await e.comoSocioA2
+      .from('rutina_dias').update({ nombre: 'Te lo cambio' })
+      .eq('id', diaDelSocio).select('id')
+    expect(error).toBeNull()
+    expect(data ?? []).toHaveLength(0)
+  })
+
+  // El with check de rutina_ejercicios_editar repite el exists contra
+  // ejercicios que ya tenía el insert. Sin eso se podía entrar por la puerta
+  // legítima —un ejercicio visible— y después mover ejercicio_id a uno
+  // privado de otro gimnasio. No hay fuga de lectura, pero queda una
+  // referencia cruzada que, por el `on delete restrict`, le impide al otro
+  // gimnasio borrar su propio ejercicio.
+  it('no se puede repuntar ejercicio_id a un ejercicio de otro gimnasio', async () => {
+    const { error } = await e.comoSocioA
+      .from('rutina_ejercicios')
+      .update({ ejercicio_id: ejercicioDelB })
+      .eq('id', ejercicioEnElDia)
+    expect(error).not.toBeNull()
+    expect(error!.code).toBe('42501')
+
+    const { data } = await admin
+      .from('rutina_ejercicios').select('ejercicio_id').eq('id', ejercicioEnElDia).single()
+    expect(data!.ejercicio_id).toBe(ejercicioGlobal)
+  })
+
+  it('sí se puede cambiarlo por otro que se ve: el arreglo no rompe lo legítimo', async () => {
+    const { data, error } = await e.comoSocioA
+      .from('rutina_ejercicios')
+      .update({ ejercicio_id: otroEjercicioGlobal })
+      .eq('id', ejercicioEnElDia).select('id')
+    expect(error).toBeNull()
+    expect(data).toHaveLength(1)
+  })
+
+  // Va al final porque borra los datos que usan los tests de arriba. Es el
+  // control positivo de las dos políticas de delete: sin él, todo lo negado
+  // más arriba daría verde también con las políticas rotas de la otra punta,
+  // las que no dejan borrar nada a nadie.
+  it('el dueño sí puede borrar su ejercicio y su día', async () => {
+    const { data: borradoEjercicio } = await e.comoSocioA
+      .from('rutina_ejercicios').delete().eq('id', ejercicioEnElDia).select('id')
+    expect(borradoEjercicio).toHaveLength(1)
+
+    const { data: borradoDia } = await e.comoSocioA
+      .from('rutina_dias').delete().eq('id', diaDelSocio).select('id')
+    expect(borradoDia).toHaveLength(1)
   })
 })
