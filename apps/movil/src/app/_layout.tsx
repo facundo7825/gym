@@ -8,6 +8,7 @@ import {
   router,
   useSegments,
 } from 'expo-router'
+import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 
@@ -43,9 +44,14 @@ export default function LayoutRaiz() {
     )
   }
 
+  // El armador de rutinas arrastra días y ejercicios con
+  // react-native-gesture-handler: esos gestos necesitan que la raíz de la app
+  // esté envuelta acá, no solo en la pantalla que los usa.
   return (
-    <ThemeProvider value={esquema === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack screenOptions={{ headerShown: false }} />
-    </ThemeProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ThemeProvider value={esquema === 'dark' ? DarkTheme : DefaultTheme}>
+        <Stack screenOptions={{ headerShown: false }} />
+      </ThemeProvider>
+    </GestureHandlerRootView>
   )
 }

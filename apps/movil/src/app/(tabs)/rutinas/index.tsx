@@ -3,7 +3,7 @@ import {
   ActivityIndicator, Alert, FlatList, Pressable,
   StyleSheet, Text, View,
 } from 'react-native'
-import { Link, Stack, useFocusEffect, useRouter, type Href } from 'expo-router'
+import { Link, Stack, useFocusEffect, useRouter } from 'expo-router'
 import { etiqueta, type NivelRutina, type ObjetivoRutina } from '@gym/core'
 import { supabase } from '@/lib/supabase'
 
@@ -17,15 +17,6 @@ interface Rutina {
   tipo: 'plantilla' | 'activa'
   rutina_dias: { id: string }[]
 }
-
-// La tarea 11 todavía no creó `/(tabs)/rutinas/[id]` ni `/(tabs)/rutinas/nueva`,
-// así que el generador de rutas tipadas de Expo Router no los conoce todavía y
-// una ruta literal no tipa. El cast es a propósito y no hace falta sacarlo
-// cuando esos archivos existan: solo amplía el tipo, no cambia el destino.
-function hrefRutina(id: string): Href {
-  return `/(tabs)/rutinas/${id}` as Href
-}
-const HREF_NUEVA = '/(tabs)/rutinas/nueva' as Href
 
 export default function Rutinas() {
   const router = useRouter()
@@ -97,7 +88,7 @@ export default function Rutinas() {
       return
     }
 
-    router.push(hrefRutina(nuevaId))
+    router.push(`/(tabs)/rutinas/${nuevaId}`)
   }
 
   if (cargando) {
@@ -132,7 +123,7 @@ export default function Rutinas() {
         }
         renderItem={({ item }) => (
           <View style={estilos.fila}>
-            <Link href={hrefRutina(item.id)} asChild>
+            <Link href={`/(tabs)/rutinas/${item.id}`} asChild>
               <Pressable style={{ flex: 1 }}>
                 <Text style={estilos.nombre}>{item.nombre}</Text>
                 <Text style={estilos.sub}>
@@ -150,7 +141,7 @@ export default function Rutinas() {
         )}
       />
 
-      <Link href={HREF_NUEVA} asChild>
+      <Link href="/(tabs)/rutinas/nueva" asChild>
         <Pressable style={estilos.flotante}>
           <Text style={estilos.botonTexto}>+ Crear rutina</Text>
         </Pressable>
