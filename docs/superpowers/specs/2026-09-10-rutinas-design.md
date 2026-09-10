@@ -236,12 +236,15 @@ las columnas en lugar de salir a buscarlas, así que evalúa la regla igual de
 bien sobre una fila vieja que sobre la fila que la sentencia está creando en
 este momento. Es la que usa la política `rutinas_leer`. `puedo_ver_rutina(id)`
 se mantiene, ahora como una capa fina que busca la fila por id y delega en
-`puedo_ver_rutina_fila()`; la siguen usando `puedo_ver_dia()` y, a través de
-ella, las políticas de `rutina_dias` y `rutina_ejercicios` —que no tienen el
-problema de arriba porque miran a su padre, no a la fila que ellas mismas
-insertan, y ese padre ya quedó commiteado dentro de la misma transacción antes
-de que la hija se inserte. La regla en sí sigue escrita una sola vez, adentro
-de `puedo_ver_rutina_fila()`.
+`puedo_ver_rutina_fila()`. La política `rutina_dias_leer` la sigue llamando
+directo, sobre `rutina_id`. `rutina_ejercicios_leer` no la llama directo: pasa
+primero por `puedo_ver_dia(rutina_dia_id)`, que resuelve el día a su
+`rutina_id` y ahí adentro llama a `puedo_ver_rutina()`. Ninguna de las dos
+tiene el problema de arriba porque miran a su padre —directo una, a través del
+día la otra—, no a la fila que ellas mismas insertan, y ese padre ya quedó
+commiteado dentro de la misma transacción antes de que la hija se inserte. La
+regla en sí sigue escrita una sola vez, adentro de
+`puedo_ver_rutina_fila()`.
 
 Los dos helpers de día existen para que la política de `rutina_ejercicios` no
 tenga que subir dos niveles a mano. Son de una línea y delegan; la regla sigue
@@ -259,26 +262,30 @@ con `puedo_ver_rutina()`, por el gotcha de RETURNING explicado arriba—, y
 `update` con `puedo_editar_rutina()` en `using` **y** en `with check`, explícito,
 por el mismo motivo documentado en `maquinas_editar`.
 
-El `insert` no puede usar `puedo_editar_rutina()` —la fila todavía no existe— y
-además carga la coherencia de `asignada_por`, que es lo único que impide que un
-socio se cree a mano una rutina "asignada" y con eso le abra la puerta al
-entrenador, o le cree una rutina a otro socio:
+La política de `insert` no puede usar `puedo_editar_rutina()` —la fila
+todavía no existe—, así que carga la regla de coherencia directo. Copiada
+literal de `0007_rls_rutinas.sql`, comentarios incluidos:
 
 ```sql
+-- El insert no puede usar puedo_editar_rutina(): la fila todavía no existe.
+-- Además carga la coherencia de asignada_por, que es lo único que impide que
+-- un socio se cree a mano una rutina "asignada" —y con eso le abra la puerta
+-- al entrenador— o le cree una rutina a otro socio.
 create policy rutinas_crear on rutinas for insert with check (
   gym_id in (select mis_gyms())
   and case
-    -- Plantilla: la crea el personal, y no se le asigna a nadie.
     when tipo = 'plantilla' then
       mi_rol(gym_id) in ('entrenador', 'admin') and asignada_por is null
-    -- Activa sin asignar: solo para mí mismo.
     when asignada_por is null then
       propietario_id = mi_membresia(gym_id)
-    -- Activa asignada: la asigna el personal, firma con su propia membresía,
-    -- y a un socio que sea una membresía activa de este mismo gimnasio.
     else
       mi_rol(gym_id) in ('entrenador', 'admin')
       and asignada_por = mi_membresia(gym_id)
+      -- Sin esto, el entrenador podía poner en propietario_id CUALQUIER uuid
+      -- de memberships —de otro gimnasio, o de un socio que no es de este—
+      -- y la rutina quedaba huérfana: nadie a quien se la asignaron puede
+      -- verla, solo el personal que la creó. Mismo patrón de coherencia
+      -- gym↔membresía que la rama anterior aplica vía mi_membresia(gym_id).
       and exists (
         select 1 from memberships m
         where m.id = propietario_id and m.gym_id = gym_id and m.estado = 'activo'
@@ -297,7 +304,9 @@ uuid de `memberships`, de otro gimnasio o de un socio dado de baja, y la
 política lo dejaba pasar igual. El resultado era una rutina huérfana:
 inaccesible para el supuesto dueño —"leer" exige que
 `propietario_id = mi_membresia(gym_id)`, y eso nunca es cierto si esa membresía
-es de otro gimnasio— y visible solo para el entrenador que la creó. El
+es de otro gimnasio— y visible solo para el personal de este gimnasio: no solo
+quien la creó, sino cualquier entrenador o admin de ese `gym_id`, por la rama
+`mi_rol(gym_id) in ('entrenador', 'admin')` de `puedo_ver_rutina_fila()`. El
 `exists` cierra ese hueco exigiendo que `propietario_id` sea, en los hechos,
 una membresía activa del mismo `gym_id` que la rutina.
 
