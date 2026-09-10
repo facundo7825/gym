@@ -287,3 +287,84 @@ describe('permisos de rutinas', () => {
     expect(error).not.toBeNull()
   })
 })
+
+describe('columnas inmutables de rutinas', () => {
+  let e: Escenario
+  let asignada: string
+  let plantilla: string
+
+  beforeAll(async () => {
+    e = await crearEscenario()
+
+    const { data: p } = await admin
+      .from('rutinas')
+      .insert({ gym_id: e.gymA, nombre: 'Plantilla', tipo: 'plantilla' })
+      .select('id').single()
+    plantilla = p!.id
+
+    const { data: a } = await admin
+      .from('rutinas')
+      .insert({
+        gym_id: e.gymA, nombre: 'Asignada', tipo: 'activa',
+        propietario_id: e.socioAMembresiaId,
+        asignada_por: e.entrenadorAMembresiaId,
+        origen_id: plantilla,
+      })
+      .select('id').single()
+    asignada = a!.id
+  })
+
+  it('el socio no puede sacarse al entrenador de encima', async () => {
+    const { error } = await e.comoSocioA
+      .from('rutinas').update({ asignada_por: null }).eq('id', asignada)
+    expect(error).not.toBeNull()
+  })
+
+  it('el socio no puede pasarle su rutina a otro', async () => {
+    const { error } = await e.comoSocioA
+      .from('rutinas')
+      .update({ propietario_id: e.socioA2MembresiaId })
+      .eq('id', asignada)
+    expect(error).not.toBeNull()
+  })
+
+  it('nadie puede mudar una rutina de gimnasio ni cambiarle el tipo', async () => {
+    const { error: errorGym } = await admin
+      .from('rutinas').update({ gym_id: e.gymB }).eq('id', asignada)
+    expect(errorGym).not.toBeNull()
+
+    const { error: errorTipo } = await admin
+      .from('rutinas').update({ tipo: 'activa' }).eq('id', plantilla)
+    expect(errorTipo).not.toBeNull()
+  })
+
+  it('origen_id no se puede repuntar a otra rutina', async () => {
+    const { data: otra } = await admin
+      .from('rutinas')
+      .insert({ gym_id: e.gymA, nombre: 'Otra plantilla', tipo: 'plantilla' })
+      .select('id').single()
+
+    const { error } = await admin
+      .from('rutinas').update({ origen_id: otra!.id }).eq('id', asignada)
+    expect(error).not.toBeNull()
+  })
+
+  // La otra mitad de la regla, y la que se rompe si alguien "simplifica" el
+  // trigger más adelante: la FK de origen_id es `on delete set null`, y esa
+  // acción se ejecuta como un update de esta fila.
+  it('borrar la plantilla de origen no falla y no toca la copia', async () => {
+    const { error } = await admin.from('rutinas').delete().eq('id', plantilla)
+    expect(error).toBeNull()
+
+    const { data } = await admin
+      .from('rutinas').select('id, origen_id, nombre').eq('id', asignada).single()
+    expect(data!.origen_id).toBeNull()
+    expect(data!.nombre).toBe('Asignada')
+  })
+
+  it('el estado sí se puede cambiar: archivar tiene que seguir andando', async () => {
+    const { error } = await e.comoSocioA
+      .from('rutinas').update({ estado: 'archivada' }).eq('id', asignada)
+    expect(error).toBeNull()
+  })
+})
