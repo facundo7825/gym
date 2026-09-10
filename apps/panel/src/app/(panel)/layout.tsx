@@ -44,6 +44,7 @@ export default async function LayoutPanel({
           <Link href="/" className="rounded px-2 py-1 hover:bg-gray-100">Inicio</Link>
           <Link href="/maquinas" className="rounded px-2 py-1 hover:bg-gray-100">Máquinas</Link>
           <Link href="/ejercicios" className="rounded px-2 py-1 hover:bg-gray-100">Ejercicios</Link>
+          <Link href="/rutinas" className="rounded px-2 py-1 hover:bg-gray-100">Rutinas</Link>
         </nav>
       </aside>
       <main className="flex-1 p-8">{children}</main>
