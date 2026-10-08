@@ -338,3 +338,76 @@ describe('permisos del registro', () => {
     expect(error?.code).toBe('23505')
   })
 })
+
+describe('columnas inmutables de una sesión', () => {
+  let e: Escenario
+  let sesion: string
+  let dia: string
+  let otroDia: string
+
+  beforeAll(async () => {
+    e = await crearEscenario()
+
+    const { data: rutina } = await admin
+      .from('rutinas')
+      .insert({ gym_id: e.gymA, nombre: 'La mía', tipo: 'activa', propietario_id: e.socioAMembresiaId })
+      .select('id').single()
+    const { data: dias } = await admin
+      .from('rutina_dias')
+      .insert([
+        { rutina_id: rutina!.id, orden: 1, nombre: 'Día 1' },
+        { rutina_id: rutina!.id, orden: 2, nombre: 'Día 2' },
+      ])
+      .select('id, orden')
+    dia = dias!.find((d) => d.orden === 1)!.id
+    otroDia = dias!.find((d) => d.orden === 2)!.id
+
+    const { data } = await admin
+      .from('sesiones')
+      .insert({
+        gym_id: e.gymA, membership_id: e.socioAMembresiaId, rutina_dia_id: dia,
+        inicio: '2026-10-08T10:00:00Z', id_local: randomUUID(),
+      })
+      .select('id').single()
+    sesion = data!.id
+  })
+
+  const actualizar = (campos: Record<string, unknown>) =>
+    e.comoSocioA.from('sesiones').update(campos).eq('id', sesion).select('id')
+
+  it('fin y notas sí se pueden escribir: es terminar de entrenar', async () => {
+    const { error } = await actualizar({ fin: '2026-10-08T11:00:00Z', notas: 'Pesado' })
+    expect(error).toBeNull()
+  })
+
+  it('el inicio no se puede cambiar', async () => {
+    const { error } = await actualizar({ inicio: '2026-10-01T10:00:00Z' })
+    expect(error?.code).toBe('42501')
+  })
+
+  it('no se puede mudar una sesión de gimnasio', async () => {
+    const { error } = await actualizar({ gym_id: e.gymB })
+    expect(error?.code).toBe('42501')
+  })
+
+  it('el id_local no se puede cambiar: es la llave de los reintentos', async () => {
+    const { error } = await actualizar({ id_local: randomUUID() })
+    expect(error?.code).toBe('42501')
+  })
+
+  it('no se puede repuntar la sesión a otro día de la rutina', async () => {
+    const { error } = await actualizar({ rutina_dia_id: otroDia })
+    expect(error?.code).toBe('42501')
+  })
+
+  // La otra mitad de la regla anterior, y la que se rompe si alguien
+  // "simplifica" el trigger: el `on delete set null` de rutina_dia_id es un
+  // update de esta fila, y tiene que pasar.
+  it('borrar el día de la rutina no falla y deja la sesión como libre', async () => {
+    const { error } = await admin.from('rutina_dias').delete().eq('id', dia)
+    expect(error).toBeNull()
+
+    const { data } = await admin.from('sesiones').select('rutina_dia_id').eq('id', sesion).single()
+    expect(data!.rutina_dia_id).toBeNull()
+  })
+})
