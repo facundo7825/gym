@@ -28,3 +28,10 @@ export {
 export type {
   SerieHecha, MejorMarca, Marcas, TipoRecord, Prescripcion, FilaPrecargada,
 } from './registro'
+export {
+  siguientesOperaciones, clasificarRespuesta, estadoTras, estadoFinTras,
+  resumenCola, textoEstadoCola, sesionesLimpiables, sesionAbierta,
+} from './cola'
+export type {
+  EstadoEnvio, EstadoFin, SesionEnCola, SerieEnCola, Operacion, Clasificacion, ResumenCola,
+} from './cola'
