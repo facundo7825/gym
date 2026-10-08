@@ -67,3 +67,6 @@ desktop.ini
 *~
 .superpowers/
 .env.test
+
+# Worktrees de trabajo aislado (una rama por etapa).
+.claude/worktrees/
