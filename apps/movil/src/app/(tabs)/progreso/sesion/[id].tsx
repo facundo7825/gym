@@ -5,6 +5,7 @@ import { detalleSeries } from '@gym/core'
 import { supabase } from '@/lib/supabase'
 import { conLimite } from '@/lib/con-limite'
 import { duracion, fechaConDia } from '@/lib/fechas'
+import { misMembresias } from '@/lib/membresia'
 
 interface SerieDeSesion {
   ejercicio_id: string
@@ -28,24 +29,33 @@ export default function SesionDelHistorial() {
   const [estado, setEstado] = useState<'cargando' | 'listo' | 'error'>('cargando')
 
   useEffect(() => {
-    conLimite(
-      supabase
-        .from('sesiones')
-        .select(`
-          inicio, fin, rutina_dias ( nombre ),
-          series_registradas ( ejercicio_id, numero_serie, peso_kg, repeticiones, created_at, ejercicios ( nombre ) )
-        `)
-        .eq('id', id)
-        .eq('series_registradas.completada', true)
-        .maybeSingle(),
-    ).then((r) => {
+    let vivo = true
+    async function cargar() {
+      // Filtra por las membresías propias: el personal puede leer las sesiones
+      // de cualquier socio de su gimnasio.
+      const ids = (await misMembresias()).map((m) => m.id)
+      const r = await conLimite(
+        supabase
+          .from('sesiones')
+          .select(`
+            inicio, fin, rutina_dias ( nombre ),
+            series_registradas ( ejercicio_id, numero_serie, peso_kg, repeticiones, created_at, ejercicios ( nombre ) )
+          `)
+          .eq('id', id)
+          .in('membership_id', ids)
+          .eq('series_registradas.completada', true)
+          .maybeSingle(),
+      )
+      if (!vivo) return
       if (!r || r.error || !r.data) {
         setEstado('error')
         return
       }
       setDetalle(r.data as unknown as Detalle)
       setEstado('listo')
-    })
+    }
+    cargar().catch(() => { if (vivo) setEstado('error') })
+    return () => { vivo = false }
   }, [id])
 
   if (estado === 'cargando') {

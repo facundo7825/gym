@@ -15,22 +15,33 @@ type Vista = 'peso' | 'volumen'
 async function cargar(ejercicioId: string): Promise<{ nombre: string; puntos: PuntoEvolucion[] } | null> {
   const ids = (await misMembresias()).map((m) => m.id)
 
-  // La agregación se hace acá y no en la base: un año entrenando tres veces
-  // por semana son unas 600 filas, y así queda como lógica pura en core.
-  const [ejercicio, series] = await Promise.all([
-    conLimite(supabase.from('ejercicios').select('nombre').eq('id', ejercicioId).maybeSingle()),
-    conLimite(
+  // La agregación se hace acá y no en la base, y queda como lógica pura en
+  // core. Con cinco series por sesión, un año son casi 800 filas: se pagina
+  // para no chocar con el tope de PostgREST, que corta en silencio.
+  const ejercicio = await conLimite(
+    supabase.from('ejercicios').select('nombre').eq('id', ejercicioId).maybeSingle(),
+  )
+  if (!ejercicio || ejercicio.error) return null
+
+  const TAMANO = 1000
+  const series = []
+  for (let desde = 0; ; desde += TAMANO) {
+    const pagina = await conLimite(
       supabase
         .from('series_registradas')
         .select('sesion_id, peso_kg, repeticiones, completada, sesiones!inner ( inicio, membership_id )')
         .eq('ejercicio_id', ejercicioId)
         .eq('completada', true)
-        .in('sesiones.membership_id', ids),
-    ),
-  ])
-  if (!ejercicio || ejercicio.error || !series || series.error) return null
+        .in('sesiones.membership_id', ids)
+        .order('id')
+        .range(desde, desde + TAMANO - 1),
+    )
+    if (!pagina || pagina.error) return null
+    series.push(...pagina.data)
+    if (pagina.data.length < TAMANO) break
+  }
 
-  const filas: FilaSerie[] = series.data.map((f) => ({
+  const filas: FilaSerie[] = series.map((f) => ({
     sesion_id: f.sesion_id,
     inicio: f.sesiones.inicio,
     peso_kg: Number(f.peso_kg),
