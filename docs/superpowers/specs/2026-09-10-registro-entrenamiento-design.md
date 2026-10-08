@@ -213,6 +213,25 @@ Se descartó reintentar siempre —con un rechazo permanente el contador no baja
 nunca y el socio no sabe por qué— y descartar la fila, que rompe lo único que la
 cola promete.
 
+### Las dos lecturas que alimentan el teléfono
+
+- **Las mejores marcas** salen de una vista `mejores_marcas` con
+  `security_invoker`, para que la RLS de `sesiones` siga decidiendo qué filas
+  entran: por membresía y ejercicio, el mayor peso y el mayor volumen de una
+  sesión. La misma vista alimenta la lista de récords de Progreso.
+- **"La vez pasada"** sale de una función `ultima_vez(ejercicio_ids)`,
+  `security invoker`: las series de la sesión más reciente de quien llama en la
+  que aparece cada ejercicio. Una consulta por pantalla y no una por ejercicio.
+
+Al refrescar, las marcas locales se **fusionan** con las del servidor —gana el
+máximo— en vez de reemplazarse: el servidor todavía no conoce lo que está en la
+cola, y un récord recién hecho sin señal no puede desaparecer al sincronizar a
+medias.
+
+Sin señal, la pantalla de sesión precarga con lo que dice la rutina: la cantidad
+de series, las repeticiones —el primer número de un rango como "8-12"— y el peso
+sugerido si lo hay.
+
 ### El corte entre lo puro y el I/O
 
 La sección 13 del diseño general ya pide la cola de sincronización como lógica
@@ -280,6 +299,23 @@ lo único de Progreso que funciona sin señal.
 Superar la marca es récord; igualarla no. **La primera vez que se hace un
 ejercicio no es récord**: sin nada contra qué comparar, avisarlo en cada ejercicio
 nuevo sería ruido.
+
+Hay dos récords. **De peso**, que se evalúa en cada serie. **De volumen**, que se
+evalúa sobre lo acumulado del ejercicio en la sesión y se avisa en la serie que
+cruza la marca —una sola vez por sesión, porque las siguientes ya parten de
+arriba—. Si una serie bate los dos, se avisa el de peso, que es el que se entiende
+sin explicación.
+
+### Marcar una serie es registrarla
+
+Tocar el tilde de una serie es lo que la inserta en la cola, con `completada =
+true`. Las filas precargadas que no se tildan no existen para la base. Por eso
+**Terminar** avisa si quedaron filas sin tildar: después de confirmar no se
+registran, y el socio lo decidió.
+
+`completada` queda en el esquema tal como lo fija el diseño general, con `true`
+por defecto. Esta etapa no escribe `false`, y todas las lecturas de Progreso
+filtran por `completada`, así que el día que exista no ensucia los gráficos.
 
 ### La pestaña Progreso
 
@@ -349,7 +385,10 @@ hueco de vacaciones no aplasta el resto.
 
 ### Librería: `react-native-svg`, dibujado a mano
 
-Es la primera dependencia de gráficos del proyecto, y la única nueva.
+Es la primera dependencia de gráficos del proyecto, y la única que suma Progreso.
+Las otras dependencias nuevas de la etapa son de la sección 2: `expo-sqlite` para
+la base local, `expo-network` para enterarse de que volvió la red, y `expo-crypto`
+para generar los `id_local`.
 
 Se descartaron **`react-native-gifted-charts`** —una dependencia grande para un
 solo gráfico, difícil de sacar de su estilo, y con la lógica adentro de la
@@ -396,7 +435,7 @@ traces.
 | La app se cierra en medio de una sesión | Al volver, si hay una sesión local sin `fin`, se ofrece **Seguir entrenando** o **Terminar**. Si nunca se termina, el historial la muestra como "sin terminar" |
 | Cerrar sesión con pendientes | "Tenés 3 series sin sincronizar; si cerrás sesión se pierden", con confirmación. Y la cola nunca empuja filas de otra membresía |
 | Valores imposibles —peso negativo, 0 repeticiones— | `validarSerie` los frena junto al campo; el `check` de la base, lo que se escape |
-| Borrar del catálogo un ejercicio con series registradas | La clave foránea lo impide. El panel ya avisa en cuántas rutinas está un ejercicio en uso; ahora suma que tiene historial, y no borra |
+| Borrar del catálogo un ejercicio con series registradas | La clave foránea `restrict` lo impide. El panel hoy no ofrece borrar ejercicios —el aviso "en cuántas rutinas está" de la etapa 2 nunca se construyó—, así que no hay mensaje que cambiar: la protección es la base |
 | Terminar con series sin marcar | Se avisa antes, en vez de descartarlas en silencio (sección 3) |
 | Progreso sin señal | "Necesitás conexión para ver tu progreso", nunca una pantalla vacía. El aviso de récord sí funciona |
 
