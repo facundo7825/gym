@@ -35,3 +35,7 @@ export {
 export type {
   EstadoEnvio, EstadoFin, SesionEnCola, SerieEnCola, Operacion, Clasificacion, ResumenCola,
 } from './cola'
+export {
+  evolucionPorSesion, marcarRecords, geometriaGrafico, MARGENES_GRAFICO,
+} from './evolucion'
+export type { FilaSerie, PuntoEvolucion, Margenes, Geometria } from './evolucion'
