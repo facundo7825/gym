@@ -439,6 +439,118 @@ export type Database = {
           },
         ]
       }
+      series_registradas: {
+        Row: {
+          completada: boolean
+          created_at: string
+          ejercicio_id: string
+          id: string
+          id_local: string
+          numero_serie: number
+          peso_kg: number
+          repeticiones: number
+          rpe: number | null
+          sesion_id: string
+        }
+        Insert: {
+          completada?: boolean
+          created_at?: string
+          ejercicio_id: string
+          id?: string
+          id_local: string
+          numero_serie: number
+          peso_kg: number
+          repeticiones: number
+          rpe?: number | null
+          sesion_id: string
+        }
+        Update: {
+          completada?: boolean
+          created_at?: string
+          ejercicio_id?: string
+          id?: string
+          id_local?: string
+          numero_serie?: number
+          peso_kg?: number
+          repeticiones?: number
+          rpe?: number | null
+          sesion_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "series_registradas_ejercicio_id_fkey"
+            columns: ["ejercicio_id"]
+            isOneToOne: false
+            referencedRelation: "ejercicios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "series_registradas_sesion_id_fkey"
+            columns: ["sesion_id"]
+            isOneToOne: false
+            referencedRelation: "sesiones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sesiones: {
+        Row: {
+          created_at: string
+          fin: string | null
+          gym_id: string
+          id: string
+          id_local: string
+          inicio: string
+          membership_id: string
+          notas: string | null
+          rutina_dia_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          fin?: string | null
+          gym_id: string
+          id?: string
+          id_local: string
+          inicio: string
+          membership_id: string
+          notas?: string | null
+          rutina_dia_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          fin?: string | null
+          gym_id?: string
+          id?: string
+          id_local?: string
+          inicio?: string
+          membership_id?: string
+          notas?: string | null
+          rutina_dia_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sesiones_gym_id_fkey"
+            columns: ["gym_id"]
+            isOneToOne: false
+            referencedRelation: "gyms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sesiones_membership_id_fkey"
+            columns: ["membership_id"]
+            isOneToOne: false
+            referencedRelation: "memberships"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sesiones_rutina_dia_id_fkey"
+            columns: ["rutina_dia_id"]
+            isOneToOne: false
+            referencedRelation: "rutina_dias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       videos: {
         Row: {
           created_at: string

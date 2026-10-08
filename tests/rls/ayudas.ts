@@ -44,6 +44,8 @@ export interface Escenario {
   socioAMembresiaId: string
   socioA2MembresiaId: string
   entrenadorAMembresiaId: string
+  /** Hace falta para cargar sesiones del gimnasio B y probar que el A no las ve. */
+  socioBMembresiaId: string
   comoAdminA: SupabaseClient
   comoSocioA: SupabaseClient
   comoSocioA2: SupabaseClient
@@ -114,6 +116,7 @@ export async function crearEscenario(): Promise<Escenario> {
     socioAMembresiaId: membresiaDe(socioA.id),
     socioA2MembresiaId: membresiaDe(socioA2.id),
     entrenadorAMembresiaId: membresiaDe(entrenadorA.id),
+    socioBMembresiaId: membresiaDe(socioB.id),
     comoAdminA: adminA.cliente,
     comoSocioA: socioA.cliente,
     comoSocioA2: socioA2.cliente,
