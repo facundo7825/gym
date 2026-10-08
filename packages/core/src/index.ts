@@ -20,3 +20,11 @@ export { validarBorrador, diaAMostrar } from './rutina'
 export type {
   EjercicioBorrador, DiaBorrador, RutinaBorrador, DiaOrdenable,
 } from './rutina'
+export {
+  PESO_MAXIMO_KG, aNumero, validarSerie, repsSugeridas, volumen, detectarRecord,
+  marcaDeSesion, fusionarMarcas, formatearKg, detalleSeries, textoVezPasada,
+  filasPrecargadas,
+} from './registro'
+export type {
+  SerieHecha, MejorMarca, Marcas, TipoRecord, Prescripcion, FilaPrecargada,
+} from './registro'
