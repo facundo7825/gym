@@ -71,6 +71,12 @@ export default function Entrenar() {
   // Las de ANTES de la sesión. No se tocan hasta Terminar (ver terminar-sesion.ts).
   const marcasPrevias = useRef<Marcas>({})
   const ocupado = useRef(false)
+  const cerrando = useRef(false)
+  const temporizadorRecord = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => () => {
+    if (temporizadorRecord.current) clearTimeout(temporizadorRecord.current)
+  }, [])
 
   useEffect(() => {
     let vivo = true
@@ -116,7 +122,9 @@ export default function Entrenar() {
       return ids.map((id) => {
         const re = delDia.find((x) => x.ejercicios!.id === id)
         const suyas = hechas.filter((h) => h.ejercicio_id === id)
-        const anterior = pasada?.get(id) ?? null
+        // Al retomar, una sesión ya sincronizada es la última vez de sí misma:
+        // si ya tiene series, se precarga con la rutina y sin "la vez pasada".
+        const anterior = suyas.length > 0 ? null : (pasada?.get(id) ?? null)
         return {
           ejercicio_id: id,
           nombre: re?.ejercicios!.nombre ?? suyas[0]?.nombre_ejercicio ?? 'Ejercicio',
@@ -167,7 +175,8 @@ export default function Entrenar() {
     setRecord(tipo === 'peso'
       ? `🏆 Nuevo récord en ${nombre}: ${formatearKg(nueva.peso_kg)}kg`
       : `🏆 Nuevo récord de volumen en ${nombre}: ${formatearKg(volumen(todas))}kg`)
-    setTimeout(() => setRecord(null), 4000)
+    if (temporizadorRecord.current) clearTimeout(temporizadorRecord.current)
+    temporizadorRecord.current = setTimeout(() => setRecord(null), 4000)
   }
 
   async function registrar(iEj: number, iFila: number) {
@@ -220,10 +229,14 @@ export default function Entrenar() {
         ej.nombre, nueva, [...anteriores, nueva],
       )
 
-      const filas = ej.filas.map((f, i) => (i === iFila ? { ...f, registrada: true } : f))
-      setEjercicios((previos) => previos.map((e, i) => (i === iEj ? { ...e, filas } : e)))
+      // Solo se tilda esta fila: lo escrito en otras mientras se guardaba no se pisa.
+      const filasTildadas = ej.filas.map((f, i) => (i === iFila ? { ...f, registrada: true } : f))
+      setEjercicios((previos) => previos.map((e, i) => (i !== iEj ? e : {
+        ...e,
+        filas: e.filas.map((f, j) => (j === iFila ? { ...f, registrada: true } : f)),
+      })))
       // Terminado un ejercicio se abre el siguiente: es parte de los cuatro toques.
-      if (filas.every((f) => f.registrada) && iEj + 1 < ejercicios.length) setAbierto(iEj + 1)
+      if (filasTildadas.every((f) => f.registrada) && iEj + 1 < ejercicios.length) setAbierto(iEj + 1)
 
       void actualizarEstado()
       void sincronizar()
@@ -236,11 +249,6 @@ export default function Entrenar() {
 
   async function agregarEjercicio(elegido: EjercicioDelCatalogo) {
     setEligiendo(false)
-    const yaEsta = ejercicios.findIndex((e) => e.ejercicio_id === elegido.id)
-    if (yaEsta >= 0) {
-      setAbierto(yaEsta)
-      return
-    }
     const anterior = (await vezPasada([elegido.id]))?.get(elegido.id) ?? null
     const nuevo: EjercicioEnSesion = {
       ejercicio_id: elegido.id,
@@ -248,11 +256,17 @@ export default function Entrenar() {
       vezPasada: anterior ? textoVezPasada(anterior) : null,
       filas: filasPrecargadas({ prescripcion: null, vezPasada: anterior, hechas: [] }).map(aFila),
     }
-    setAbierto(ejercicios.length)
-    setEjercicios((previos) => [...previos, nuevo])
+    // El control de duplicados va dentro del updater: dos elecciones seguidas
+    // del mismo ejercicio no pueden agregarlo dos veces.
+    setEjercicios((previos) => {
+      const yaEsta = previos.findIndex((e) => e.ejercicio_id === elegido.id)
+      setAbierto(yaEsta >= 0 ? yaEsta : previos.length)
+      return yaEsta >= 0 ? previos : [...previos, nuevo]
+    })
   }
 
   function terminar() {
+    if (ocupado.current || cerrando.current) return
     const actual = sesion.current
     // No se registró nada: no hay sesión que cerrar.
     if (!actual) {
@@ -261,10 +275,13 @@ export default function Entrenar() {
     }
 
     const cerrar = async () => {
+      if (ocupado.current || cerrando.current) return
+      cerrando.current = true
       try {
         await terminarSesion(actual)
         router.back()
       } catch {
+        cerrando.current = false
         Alert.alert('No pudimos terminar el entrenamiento', 'Probá de nuevo.')
       }
     }
