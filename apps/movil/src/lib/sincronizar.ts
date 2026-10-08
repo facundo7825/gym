@@ -28,29 +28,32 @@ type Oyente = (estado: EstadoVisible) => void
 
 const oyentes = new Set<Oyente>()
 let ultimo: EstadoVisible = { texto: null, hayRechazadas: false }
-let corriendo = false
 let otraVez = false
+let enCurso: Promise<void> | null = null
 
-export async function sincronizar(): Promise<void> {
+export function sincronizar(): Promise<void> {
   // Si ya está corriendo se anota otra vuelta en vez de perder el pedido: la
   // serie que se acaba de registrar puede no estar en la cola que la vuelta
-  // actual ya leyó.
-  if (corriendo) {
+  // actual ya leyó. Y se devuelve la misma promesa, para que quien espera
+  // (cerrar sesión) siga esperando hasta que termine también esa vuelta extra.
+  if (enCurso) {
     otraVez = true
-    return
+    return enCurso
   }
-  corriendo = true
-  try {
-    do {
-      otraVez = false
-      await correr()
-    } while (otraVez)
-  } catch {
-    // Lo que no salió queda en la cola para el próximo intento.
-  } finally {
-    corriendo = false
-    await actualizarEstado()
-  }
+  enCurso = (async () => {
+    try {
+      do {
+        otraVez = false
+        await correr()
+      } while (otraVez)
+    } catch {
+      // Lo que no salió queda en la cola para el próximo intento.
+    } finally {
+      enCurso = null
+      await actualizarEstado()
+    }
+  })()
+  return enCurso
 }
 
 async function correr(): Promise<void> {
@@ -63,13 +66,14 @@ async function correr(): Promise<void> {
     const operaciones = siguientesOperaciones(sesiones, series, membresias)
     if (operaciones.length === 0) break
 
-    let huboTransitorio = false
     for (const op of operaciones) {
-      if ((await ejecutar(op)) === 'transitorio') huboTransitorio = true
+      if ((await ejecutar(op)) === 'transitorio') {
+        // Sin señal, seguir mandando solo acumula esperas: se corta en el primero.
+        await actualizarEstado()
+        return
+      }
     }
     await actualizarEstado()
-    // Sin señal, seguir solo acumula esperas.
-    if (huboTransitorio) return
   }
 
   const { sesiones, series } = await local.leerCola()
