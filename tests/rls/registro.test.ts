@@ -411,3 +411,77 @@ describe('columnas inmutables de una sesión', () => {
     expect(data!.rutina_dia_id).toBeNull()
   })
 })
+
+describe('mejores marcas y la vez pasada', () => {
+  let e: Escenario
+  let x: string
+  let y: string
+
+  beforeAll(async () => {
+    e = await crearEscenario()
+    const { data } = await admin
+      .from('ejercicios').select('id').is('gym_id', null).order('nombre').limit(2)
+    x = data![0]!.id
+    y = data![1]!.id
+
+    // Ayer: X 60×10 y 62.5×8 (volumen 1100), Y 20×12.
+    const ayer = await sesionDe(e.gymA, e.socioAMembresiaId, '2026-10-07T10:00:00Z')
+    await serieEn(ayer, x, { numero_serie: 1, peso_kg: 60, repeticiones: 10 })
+    await serieEn(ayer, x, { numero_serie: 2, peso_kg: 62.5, repeticiones: 8 })
+    await serieEn(ayer, y, { numero_serie: 1, peso_kg: 20, repeticiones: 12 })
+
+    // Hoy: X 65×5 y 60×5 (volumen 625: más peso, menos volumen). Y una serie
+    // de 100 kg sin completar, que no puede contar para nada.
+    const hoy = await sesionDe(e.gymA, e.socioAMembresiaId, '2026-10-08T10:00:00Z')
+    await serieEn(hoy, x, { numero_serie: 1, peso_kg: 65, repeticiones: 5 })
+    await serieEn(hoy, x, { numero_serie: 2, peso_kg: 60, repeticiones: 5 })
+    await serieEn(hoy, x, { numero_serie: 3, peso_kg: 100, repeticiones: 1, completada: false })
+  })
+
+  it('las marcas de X: el mejor peso de hoy y el mejor volumen de ayer', async () => {
+    const { data, error } = await e.comoSocioA
+      .from('mejores_marcas').select('*')
+      .eq('membership_id', e.socioAMembresiaId).eq('ejercicio_id', x).single()
+    expect(error).toBeNull()
+    expect(Number(data!.mejor_peso_kg)).toBe(65)
+    expect(Number(data!.mejor_volumen_kg)).toBe(1100)
+    expect(data!.sesiones).toBe(2)
+  })
+
+  it('otro socio no ve las marcas ajenas: la vista respeta la RLS', async () => {
+    const { data } = await e.comoSocioA2
+      .from('mejores_marcas').select('*').eq('membership_id', e.socioAMembresiaId)
+    expect(data).toEqual([])
+  })
+
+  it('el entrenador sí las ve', async () => {
+    const { data } = await e.comoEntrenadorA
+      .from('mejores_marcas').select('ejercicio_id').eq('membership_id', e.socioAMembresiaId)
+    expect(data).toHaveLength(2)
+  })
+
+  it('la vez pasada trae la sesión más reciente de cada ejercicio, sin las incompletas', async () => {
+    const { data, error } = await e.comoSocioA.rpc('ultima_vez', { p_ejercicio_ids: [x, y] })
+    expect(error).toBeNull()
+
+    const deX = data!.filter((f) => f.ejercicio_id === x)
+    expect(deX.map((f) => [f.numero_serie, Number(f.peso_kg), f.repeticiones]))
+      .toEqual([[1, 65, 5], [2, 60, 5]])
+
+    // Y no se hizo hoy: viene de ayer.
+    const deY = data!.filter((f) => f.ejercicio_id === y)
+    expect(deY.map((f) => Number(f.peso_kg))).toEqual([20])
+  })
+
+  // El entrenador VE las sesiones del socio, pero "la vez pasada" es la de
+  // quien llama, no la de cualquiera que pueda leer.
+  it('la vez pasada es la propia: el entrenador no recibe la del socio', async () => {
+    const { data } = await e.comoEntrenadorA.rpc('ultima_vez', { p_ejercicio_ids: [x, y] })
+    expect(data).toEqual([])
+  })
+
+  it('otro socio no recibe nada', async () => {
+    const { data } = await e.comoSocioA2.rpc('ultima_vez', { p_ejercicio_ids: [x, y] })
+    expect(data).toEqual([])
+  })
+})

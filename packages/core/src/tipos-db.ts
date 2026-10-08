@@ -604,7 +604,31 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      mejores_marcas: {
+        Row: {
+          ejercicio_id: string | null
+          mejor_peso_kg: number | null
+          mejor_volumen_kg: number | null
+          membership_id: string | null
+          sesiones: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "series_registradas_ejercicio_id_fkey"
+            columns: ["ejercicio_id"]
+            isOneToOne: false
+            referencedRelation: "ejercicios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sesiones_membership_id_fkey"
+            columns: ["membership_id"]
+            isOneToOne: false
+            referencedRelation: "memberships"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       copiar_rutina: {
@@ -648,6 +672,15 @@ export type Database = {
       tomar_rutina: {
         Args: { p_plantilla_id: string; p_propietario_id: string }
         Returns: string
+      }
+      ultima_vez: {
+        Args: { p_ejercicio_ids: string[] }
+        Returns: {
+          ejercicio_id: string
+          numero_serie: number
+          peso_kg: number
+          repeticiones: number
+        }[]
       }
     }
     Enums: {
