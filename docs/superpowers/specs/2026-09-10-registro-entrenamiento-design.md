@@ -1,7 +1,7 @@
 # Diseño — Registro de entrenamiento (etapa 3)
 
 **Fecha:** 2026-09-10
-**Estado:** Aprobado en conversación — secciones 1 a 3 el 2026-09-10, 4 a 7 el 2026-10-08.
+**Estado:** Implementado. Plan: [`2026-10-08-registro-entrenamiento.md`](../plans/2026-10-08-registro-entrenamiento.md).
 **Desarrolla:** [Diseño general](2026-08-27-gym-saas-design.md), secciones 5 (Registro), 7 (Sin conexión) y 8 (Progreso)
 
 ---
