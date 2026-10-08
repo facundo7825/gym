@@ -6,6 +6,7 @@ export default function LayoutPestanas() {
       <Tabs.Screen name="index" options={{ title: 'Hoy' }} />
       <Tabs.Screen name="rutinas" options={{ title: 'Rutinas', headerShown: false }} />
       <Tabs.Screen name="ejercicios" options={{ title: 'Ejercicios', headerShown: false }} />
+      <Tabs.Screen name="progreso" options={{ title: 'Progreso', headerShown: false }} />
     </Tabs>
   )
 }
