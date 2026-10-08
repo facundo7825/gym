@@ -11,6 +11,7 @@ import {
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
+import { iniciarSincronizacion } from '@/lib/sincronizar'
 
 export default function LayoutRaiz() {
   const [sesion, setSesion] = useState<Session | null>(null)
@@ -35,6 +36,15 @@ export default function LayoutRaiz() {
     if (!sesion && !enLogin) router.replace('/login')
     if (sesion && enLogin) router.replace('/(tabs)')
   }, [sesion, cargando, segmentos])
+
+  // La cola se sincroniza mientras haya alguien con la sesión iniciada. Por el
+  // id y no por el objeto sesión: ese objeto cambia en cada refresco del token
+  // y volvería a enganchar los oyentes.
+  const usuarioId = sesion?.user.id
+  useEffect(() => {
+    if (!usuarioId) return
+    return iniciarSincronizacion()
+  }, [usuarioId])
 
   if (cargando) {
     return (

@@ -7,6 +7,7 @@ import { Link, useFocusEffect } from 'expo-router'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { diaAMostrar } from '@gym/core'
 import { supabase } from '@/lib/supabase'
+import { cerrarSesion } from '@/lib/cerrar-sesion'
 
 const CLAVE_ULTIMO_DIA = 'hoy.ultimoDia'
 
@@ -105,7 +106,7 @@ export default function Hoy() {
     return (
       <View style={estilos.centrado}>
         <ActivityIndicator />
-        <Button title="Cerrar sesión" onPress={() => supabase.auth.signOut()} />
+        <Button title="Cerrar sesión" onPress={() => void cerrarSesion()} />
       </View>
     )
   }
@@ -114,7 +115,7 @@ export default function Hoy() {
     return (
       <View style={estilos.centrado}>
         <Text style={estilos.error}>{error}</Text>
-        <Button title="Cerrar sesión" onPress={() => supabase.auth.signOut()} />
+        <Button title="Cerrar sesión" onPress={() => void cerrarSesion()} />
       </View>
     )
   }
@@ -128,7 +129,7 @@ export default function Hoy() {
             <Text style={estilos.enlace}>Mirá el catálogo de tu gimnasio.</Text>
           </Pressable>
         </Link>
-        <Button title="Cerrar sesión" onPress={() => supabase.auth.signOut()} />
+        <Button title="Cerrar sesión" onPress={() => void cerrarSesion()} />
       </View>
     )
   }
@@ -162,7 +163,7 @@ export default function Hoy() {
         }
       />
 
-      <Button title="Cerrar sesión" onPress={() => supabase.auth.signOut()} />
+      <Button title="Cerrar sesión" onPress={() => void cerrarSesion()} />
     </View>
   )
 }
