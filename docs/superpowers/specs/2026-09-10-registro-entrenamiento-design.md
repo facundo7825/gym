@@ -1,17 +1,8 @@
 # Diseño — Registro de entrenamiento (etapa 3)
 
 **Fecha:** 2026-09-10
-**Estado:** BORRADOR — brainstorming a mitad de camino. No es un diseño aprobado todavía.
+**Estado:** Aprobado en conversación — secciones 1 a 3 el 2026-09-10, 4 a 7 el 2026-10-08.
 **Desarrolla:** [Diseño general](2026-08-27-gym-saas-design.md), secciones 5 (Registro), 7 (Sin conexión) y 8 (Progreso)
-
----
-
-## Cómo leer este documento
-
-Las secciones 1 a 3 están **discutidas y aprobadas** en conversación. Lo que
-falta está en "Qué quedó pendiente", al final. Cuando esas dos cosas se cierren,
-este documento se completa, se revisa entero y recién ahí pasa a plan de
-implementación.
 
 ---
 
@@ -82,6 +73,21 @@ delega en ella para la política de `series_registradas`, que mira al padre y no
 tiene el problema.
 
 Ver `supabase/migrations/0007_rls_rutinas.sql` para el precedente y su comentario.
+
+### Claves foráneas
+
+`series_registradas.ejercicio_id` es `on delete restrict`, como
+`rutina_ejercicios.ejercicio_id` en `0006_rutinas.sql`: un ejercicio con historial
+no se borra del catálogo. `sesiones.membership_id` es `on delete cascade`, como
+`rutinas.propietario_id`: el historial es del socio y se va con su membresía.
+`series_registradas.sesion_id` también es `cascade`, aunque ningún rol pueda
+borrar una sesión: solo corre cuando la cascada viene de arriba.
+
+### Valores imposibles, frenados también en la base
+
+`peso_kg >= 0`, `repeticiones > 0` y `rpe` entre 1 y 10 cuando no es nulo, como
+`check`. La app los valida antes con `validarSerie` (sección 5); el `check` está
+para lo que se escape, y su rechazo es uno de los permanentes de la cola.
 
 ### Append-only por construcción
 
@@ -182,23 +188,37 @@ Los videos siguen requiriendo señal, como ya fijaba el diseño general.
 
 ### La sincronización es una función y un orden
 
-Empuja las sesiones pendientes, después sus series, marca lo enviado, y refresca
-la caché y las mejores marcas.
+Empuja las sesiones pendientes, después sus series, después el `fin` de las
+sesiones terminadas, marca lo enviado, y refresca la caché y las mejores marcas.
+
+Escribir `fin` es el único `update` que viaja en la cola, y es seguro reintentarlo:
+pone un valor fijo, no suma ni depende de lo que haya.
 
 Corre en tres momentos: al volver la app a primer plano, al recuperar la red, y
 como intento oportunista después de cada serie. Si falla, no pasa nada: la serie
 ya está guardada local y el intento siguiente la lleva.
 
 **El choque contra el índice único de `id_local` se trata como éxito**: significa
-que un envío anterior sí había llegado y la respuesta se perdió. Cualquier otro
-error deja la fila pendiente para el próximo intento.
+que un envío anterior sí había llegado y la respuesta se perdió.
+
+El resto de los errores se clasifica en dos:
+
+- **Transitorio** —sin red, timeout, 5xx—: la fila queda pendiente para el próximo
+  intento.
+- **Permanente** —RLS, clave foránea, `check`—: la fila queda **rechazada**. No se
+  reintenta, no se borra, y el aviso de estado lo dice. Si la rechazada es una
+  sesión, sus series quedan frenadas con ella: no tienen a qué colgarse.
+
+Se descartó reintentar siempre —con un rechazo permanente el contador no baja
+nunca y el socio no sabe por qué— y descartar la fila, que rompe lo único que la
+cola promete.
 
 ### El corte entre lo puro y el I/O
 
 La sección 13 del diseño general ya pide la cola de sincronización como lógica
 testeable de `packages/core`.
 
-- En **`packages/core`**: qué se manda y en qué orden, cómo se interpreta cada
+- En **`packages/core`**: qué se manda y en qué orden, cómo se clasifica cada
   respuesta, si una serie es récord, cómo se calcula el volumen. Funciones puras,
   con vitest, sin teléfono.
 - En **la app**: solo el I/O — hablar con SQLite y con la red.
@@ -207,8 +227,12 @@ Esa costura es la que hace que lo más frágil de la etapa se pueda probar.
 
 ### Estado siempre visible
 
-"3 series sin sincronizar", como pide la sección 7. El socio nunca queda con la
-duda de si se guardó.
+"3 series sin sincronizar", como pide la sección 7 del diseño general, y "1 serie
+no se pudo guardar" cuando hay rechazadas. El socio nunca queda con la duda de si
+se guardó.
+
+La cola guarda el `membership_id` de cada fila y nunca empuja filas de otra
+membresía, aunque en el teléfono haya iniciado sesión otra persona.
 
 ---
 
@@ -253,6 +277,10 @@ en vez de descartarlas en silencio.
 Aparece en el momento de marcar la serie, contra las mejores marcas locales. Es
 lo único de Progreso que funciona sin señal.
 
+Superar la marca es récord; igualarla no. **La primera vez que se hace un
+ejercicio no es récord**: sin nada contra qué comparar, avisarlo en cada ejercicio
+nuevo sería ruido.
+
 ### La pestaña Progreso
 
 En orden de cuánto pesan:
@@ -261,7 +289,7 @@ En orden de cuánto pesan:
 2. **Historial de sesiones** — cuándo entrenó, qué día de qué rutina, y abrir una
    para ver lo que hizo.
 3. **Evolución por ejercicio** — peso máximo y volumen en el tiempo. Es la única
-   parte con gráficos.
+   parte con gráficos; ver sección 4.
 
 Las tres requieren señal, y lo dicen cuando no la hay en vez de mostrar una
 pantalla vacía.
@@ -277,17 +305,149 @@ es una etapa aparte y no se vende como incluido acá.
 
 ---
 
-## Qué quedó pendiente
+## 4. Evolución por ejercicio
 
-Dos cosas, y con eso el diseño se cierra:
+### Forma
 
-1. **Cómo se ven los gráficos de evolución por ejercicio.** Es la primera
-   librería de gráficos del proyecto y conviene decidirla mirando maquetas, no en
-   abstracto. Hay que elegir la librería (o SVG a mano) y la forma de los dos
-   gráficos: peso máximo en el tiempo y volumen en el tiempo.
-2. **La sección de manejo de errores y pruebas** — equivalente a las secciones 8
-   y 9 del diseño de la etapa 2. Incluye qué se prueba de la cola de
-   sincronización, que es lo más frágil de esta etapa.
+Se evaluaron tres con maquetas: dos gráficos apilados, uno solo con selector, y
+uno combinado con línea de peso y barras de volumen.
 
-Después de eso: auto-revisión del spec, revisión del usuario, y recién ahí el
-plan de implementación.
+**Elegida: un gráfico con selector.** Un gráfico de línea grande, con un selector
+**Peso máximo · Volumen** arriba, y sobre el selector el resumen con las dos
+mejores marcas. Se llega tocando un ejercicio en Progreso.
+
+Se resigna ver peso y volumen a la vez —el caso en que el peso se estanca pero el
+volumen sigue subiendo queda detrás de un toque— a cambio de un gráfico más alto
+y más legible. El combinado se descartó por mezclar dos escalas en un dibujo.
+
+### Qué es cada punto
+
+Una sesión en la que el ejercicio tiene al menos una serie completada.
+
+- **Peso máximo:** el mayor `peso_kg` entre sus series completadas.
+- **Volumen:** la suma de `peso_kg × repeticiones` de sus series completadas.
+
+Las series no marcadas como completadas no cuentan para nada.
+
+**Récords en dorado.** En cada vista se marca el punto que supera a todos los
+anteriores, con el mismo criterio que el aviso de récord de la sección 3 —incluido
+que el primero no cuenta—, para que el gráfico y el aviso no se contradigan nunca.
+
+**Eje horizontal por sesión, no por fecha.** Los puntos van equidistantes; abajo,
+la primera fecha, la del medio y la última. Con pocos puntos se lee mejor, y un
+hueco de vacaciones no aplasta el resto.
+
+### Lo que se dejó afuera a propósito
+
+- **Selector de período** (3 meses · 6 meses · Todo): siempre se ve todo. En los
+  primeros meses nadie tiene historial que filtrar. Agregarlo después es filtrar
+  por fecha antes de dibujar: una función más en core, sin cambiar el diseño.
+- **Tocar un punto para ver su valor:** el gráfico es un dibujo quieto. La
+  tendencia la da el gráfico, la marca el resumen, y el detalle de un día el
+  historial. Sin gestos que manejar, es lo más fácil de dejar bien dibujando a
+  mano.
+
+### Librería: `react-native-svg`, dibujado a mano
+
+Es la primera dependencia de gráficos del proyecto, y la única nueva.
+
+Se descartaron **`react-native-gifted-charts`** —una dependencia grande para un
+solo gráfico, difícil de sacar de su estilo, y con la lógica adentro de la
+librería, donde no se puede probar— y **`victory-native`**, que suma
+`@shopify/react-native-skia`, un motor de dibujo entero, para una línea.
+
+Dibujarlo a mano permite el mismo corte que la sección 2:
+
+- En **`packages/core`**, con vitest:
+  - `evolucionPorSesion(series)` agrupa filas por sesión y devuelve
+    `{ fecha, pesoMax, volumen }`.
+  - `marcarRecords(valores)` dice qué puntos son récord.
+  - `geometriaGrafico(valores, ancho, alto)` devuelve las coordenadas de los
+    puntos y las guías.
+- En **la app**: una consulta que trae las series completadas del ejercicio con la
+  fecha de su sesión, y un componente `GraficoEvolucion` que solo traduce esa
+  geometría a `react-native-svg`.
+
+La agregación se hace en el cliente y no con una función de la base: un año
+entrenando tres veces por semana son unas 600 filas, y así queda como lógica pura.
+
+### Casos borde
+
+| | |
+|---|---|
+| Sin sesiones del ejercicio | "Todavía no registraste este ejercicio" |
+| Una sola sesión | El punto solo, y "Con una sesión más aparece la evolución" |
+| Todos los valores iguales | `geometriaGrafico` no divide por cero; tiene su test |
+| Sin señal | El mismo aviso que el resto de Progreso |
+
+---
+
+## 5. Manejo de errores
+
+En el tono de la sección 14 del diseño general: castellano, sin códigos ni stack
+traces.
+
+| Situación | Comportamiento |
+|---|---|
+| Sin señal al registrar | No es un error. La serie se guarda local y el aviso dice "3 series sin sincronizar" |
+| Reintento duplicado —una respuesta que se perdió— | El choque contra `id_local` es éxito y la fila sale de la cola |
+| Rechazo permanente del servidor | La fila queda rechazada: guardada, sin reintento, y el aviso dice "1 serie no se pudo guardar". Una sesión rechazada frena sus series |
+| Terminar sin señal | El `fin` va a la cola detrás de las series. Pone un valor fijo, así que reintentarlo no hace daño |
+| La app se cierra en medio de una sesión | Al volver, si hay una sesión local sin `fin`, se ofrece **Seguir entrenando** o **Terminar**. Si nunca se termina, el historial la muestra como "sin terminar" |
+| Cerrar sesión con pendientes | "Tenés 3 series sin sincronizar; si cerrás sesión se pierden", con confirmación. Y la cola nunca empuja filas de otra membresía |
+| Valores imposibles —peso negativo, 0 repeticiones— | `validarSerie` los frena junto al campo; el `check` de la base, lo que se escape |
+| Borrar del catálogo un ejercicio con series registradas | La clave foránea lo impide. El panel ya avisa en cuántas rutinas está un ejercicio en uso; ahora suma que tiene historial, y no borra |
+| Terminar con series sin marcar | Se avisa antes, en vez de descartarlas en silencio (sección 3) |
+| Progreso sin señal | "Necesitás conexión para ver tu progreso", nunca una pantalla vacía. El aviso de récord sí funciona |
+
+---
+
+## 6. Tests
+
+En el orden de prioridad de la sección 13 del diseño general: por costo del fallo,
+no por cobertura.
+
+1. **Aislamiento** — `tests/rls/registro.test.ts`: dos gimnasios con datos, y
+   ninguno lee ni escribe `sesiones` ni `series_registradas` del otro. Con
+   atención a `series_registradas`, que no tiene `gym_id` propio.
+2. **La tabla de escritura de la sección 1, caso por caso**, desde tres sesiones:
+   el socio dueño, otro socio del mismo gimnasio y el entrenador.
+   - El entrenador no inserta nada, ni sesiones ni series.
+   - Sobre la sesión propia se actualizan `fin` y `notas`; el trigger rechaza
+     cualquier otra columna.
+   - **`update` y `delete` sobre `series_registradas`.** Sin política, Postgres no
+     da error: afecta cero filas. El test afirma que **la fila sigue igual**, no
+     que haya un error. Es el test más fácil de escribir mal de la etapa, y el
+     que sostiene la invariante de la que depende la sincronización.
+3. **Regresión de la lección de la etapa 2:** `insert … returning` sobre
+   `sesiones` funciona desde la sesión del socio.
+4. **`id_local`:** el segundo insert con el mismo valor da `23505`, que es el
+   código que la cola interpreta como éxito. Y los `check` de valores imposibles.
+5. **`packages/core`** con vitest. El bloque más grande, porque es donde vive lo
+   frágil:
+   - **Cola:** el orden de envío —sesión, series, `fin`—; la clasificación de cada
+     respuesta —éxito, duplicado como éxito, transitorio pendiente, permanente
+     rechazado—; las series de una sesión rechazada quedan frenadas; nunca se
+     empujan filas de otra membresía.
+   - **Récords:** superar es récord, igualar no, la primera vez no.
+   - `validarSerie`, `evolucionPorSesion`, `marcarRecords` y `geometriaGrafico`,
+     incluido el caso de valores todos iguales.
+6. **La app** cierra con `tsc --noEmit` y lint, como en la etapa 2. La
+   verificación a mano queda para el usuario, con un recorrido concreto: modo
+   avión → registrar tres series → cerrar la app a la fuerza → abrir y seguir →
+   sacar el modo avión → el contador baja a cero → la sesión aparece en la ficha
+   del socio en el panel.
+
+**Sin e2e de navegador**, por el mismo motivo que la etapa 2: montar Playwright y
+Expo es un proyecto en sí mismo.
+
+---
+
+## 7. Documentos a corregir al terminar
+
+- **README.md** — la etapa 3 pasa a "Hecha".
+- **Diseño general, sección 7** — anotar que la cola distingue errores
+  transitorios de permanentes y que lo rechazado se guarda y se avisa.
+- **Diseño general, sección 8** — anotar que "La vez pasada" precargada requiere
+  señal (sección 2 de este documento).
+- **Diseño general, sección 12** — la pestaña Hoy ya tiene el botón *Empezar*.
