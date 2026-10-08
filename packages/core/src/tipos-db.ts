@@ -612,6 +612,7 @@ export type Database = {
         Returns: undefined
       }
       duplicar_plantilla: { Args: { p_rutina_id: string }; Returns: string }
+      es_mi_sesion: { Args: { p_sesion_id: string }; Returns: boolean }
       mi_membresia: { Args: { p_gym_id: string }; Returns: string }
       mi_rol: {
         Args: { p_gym_id: string }
@@ -628,6 +629,11 @@ export type Database = {
           p_propietario_id: string
           p_tipo: Database["public"]["Enums"]["tipo_rutina"]
         }
+        Returns: boolean
+      }
+      puedo_ver_sesion: { Args: { p_sesion_id: string }; Returns: boolean }
+      puedo_ver_sesion_fila: {
+        Args: { p_gym_id: string; p_membership_id: string }
         Returns: boolean
       }
       reordenar_dias: {
