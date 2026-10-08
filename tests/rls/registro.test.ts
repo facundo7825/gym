@@ -485,3 +485,52 @@ describe('mejores marcas y la vez pasada', () => {
     expect(data).toEqual([])
   })
 })
+
+describe('últimas sesiones para la ficha del panel', () => {
+  let e: Escenario
+
+  beforeAll(async () => {
+    e = await crearEscenario()
+    const ejercicio = await unEjercicio()
+
+    // Cuatro sesiones del socio A: la vista tiene que devolver las tres últimas.
+    for (const dia of ['01', '02', '03']) {
+      await sesionDe(e.gymA, e.socioAMembresiaId, `2026-10-${dia}T10:00:00Z`)
+    }
+    const ultima = await sesionDe(e.gymA, e.socioAMembresiaId, '2026-10-04T10:00:00Z')
+    await serieEn(ultima, ejercicio, { numero_serie: 1 })
+    await serieEn(ultima, ejercicio, { numero_serie: 2, completada: false })
+
+    await sesionDe(e.gymA, e.socioA2MembresiaId, '2026-10-04T10:00:00Z')
+    await sesionDe(e.gymB, e.socioBMembresiaId, '2026-10-04T10:00:00Z')
+  })
+
+  it('el entrenador ve las tres más recientes de cada socio, con sus series completadas', async () => {
+    const { data, error } = await e.comoEntrenadorA
+      .from('ultimas_sesiones').select('*')
+      .eq('membership_id', e.socioAMembresiaId)
+      .order('inicio', { ascending: false })
+    expect(error).toBeNull()
+    expect(data).toHaveLength(3)
+    expect(data![0]!.inicio).toContain('2026-10-04')
+    expect(data![0]!.series).toBe(1)
+    expect(data![0]!.dia_nombre).toBeNull()
+  })
+
+  it('ve también las del otro socio: cada uno tiene sus tres', async () => {
+    const { data } = await e.comoEntrenadorA
+      .from('ultimas_sesiones').select('id').eq('membership_id', e.socioA2MembresiaId)
+    expect(data).toHaveLength(1)
+  })
+
+  it('el gimnasio A no ve las del B: la vista respeta la RLS', async () => {
+    const { data } = await e.comoAdminA
+      .from('ultimas_sesiones').select('id').eq('membership_id', e.socioBMembresiaId)
+    expect(data).toEqual([])
+  })
+
+  it('un socio ve solo las suyas', async () => {
+    const { data } = await e.comoSocioA2.from('ultimas_sesiones').select('membership_id')
+    expect(data!.every((f) => f.membership_id === e.socioA2MembresiaId)).toBe(true)
+  })
+})

@@ -17,8 +17,22 @@ export default async function Socios() {
     .select('id, nombre, tipo, propietario_id, asignada_por, estado')
     .eq('estado', 'activa')
 
+  // Hasta tres por socio: lo resuelve la vista (0015). La RLS ya limita esto al
+  // propio gimnasio.
+  const { data: sesiones } = await supabase
+    .from('ultimas_sesiones')
+    .select('id, membership_id, inicio, fin, dia_nombre, series')
+    .order('inicio', { ascending: false })
+
   const plantillas = rutinas?.filter((r) => r.tipo === 'plantilla') ?? []
   const activas = rutinas?.filter((r) => r.tipo === 'activa') ?? []
+
+  // La zona fija de Argentina: el servidor del panel puede correr en UTC, y una
+  // sesión de las 22 hs no puede aparecer como del día siguiente.
+  const fecha = new Intl.DateTimeFormat('es-AR', {
+    weekday: 'short', day: 'numeric', month: 'numeric',
+    timeZone: 'America/Argentina/Buenos_Aires',
+  })
 
   return (
     <div className="space-y-8">
@@ -28,6 +42,7 @@ export default async function Socios() {
         {(socios ?? []).map((s) => {
           const suyas = activas.filter((r) => r.propietario_id === s.id)
           const nombre = `${s.profiles?.nombre ?? ''} ${s.profiles?.apellido ?? ''}`.trim()
+          const ultimas = (sesiones ?? []).filter((x) => x.membership_id === s.id)
 
           return (
             <li key={s.id} className="space-y-2 px-4 py-3">
@@ -54,6 +69,24 @@ export default async function Socios() {
               ) : (
                 <p className="text-sm text-gray-500">Sin rutinas activas.</p>
               )}
+
+              <div className="text-sm">
+                <p className="text-gray-500">Últimas sesiones</p>
+                {ultimas.length ? (
+                  <ul className="text-gray-700">
+                    {ultimas.map((x) => (
+                      <li key={x.id!}>
+                        {fecha.format(new Date(x.inicio!))}
+                        {' · '}{x.dia_nombre ?? 'Entrenamiento libre'}
+                        {' · '}{x.series} series
+                        {!x.fin && <span className="text-gray-500"> · sin terminar</span>}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-gray-500">Todavía no registró entrenamientos.</p>
+                )}
+              </div>
 
               <Asignar socioId={s.id} plantillas={plantillas} />
             </li>

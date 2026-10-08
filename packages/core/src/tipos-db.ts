@@ -491,6 +491,13 @@ export type Database = {
             referencedRelation: "sesiones"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "series_registradas_sesion_id_fkey"
+            columns: ["sesion_id"]
+            isOneToOne: false
+            referencedRelation: "ultimas_sesiones"
+            referencedColumns: ["id"]
+          },
         ]
       }
       sesiones: {
@@ -620,6 +627,25 @@ export type Database = {
             referencedRelation: "ejercicios"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "sesiones_membership_id_fkey"
+            columns: ["membership_id"]
+            isOneToOne: false
+            referencedRelation: "memberships"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ultimas_sesiones: {
+        Row: {
+          dia_nombre: string | null
+          fin: string | null
+          id: string | null
+          inicio: string | null
+          membership_id: string | null
+          series: number | null
+        }
+        Relationships: [
           {
             foreignKeyName: "sesiones_membership_id_fkey"
             columns: ["membership_id"]
