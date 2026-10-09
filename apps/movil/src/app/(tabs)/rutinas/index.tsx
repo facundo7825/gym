@@ -95,7 +95,7 @@ export default function Rutinas() {
 
       {solapa === 'mias' && (
         <View style={estilos.filtro}>
-          <Pressable onPress={() => setArchivadas((v) => !v)} hitSlop={8}>
+          <Pressable onPress={() => setArchivadas((v) => !v)} hitSlop={14}>
             <Texto variante="chico" peso="semi" tono="cian">
               {archivadas ? '‹ Ver las activas' : 'Ver las archivadas ›'}
             </Texto>
@@ -119,7 +119,7 @@ export default function Rutinas() {
         renderItem={({ item }) => (
           <Tarjeta style={estilos.fila}>
             <Link href={`/(tabs)/rutinas/${item.id}`} asChild>
-              <Pressable style={{ flex: 1 }}>
+              <Pressable style={{ flex: 1, minHeight: TOQUE_MINIMO, justifyContent: 'center' }}>
                 <Texto peso="semi">{item.nombre}</Texto>
                 <Texto variante="chico" tono="secundario">
                   {etiqueta(item.objetivo)} · {etiqueta(item.nivel)} · {item.rutina_dias.length} días

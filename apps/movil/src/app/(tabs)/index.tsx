@@ -149,8 +149,8 @@ export default function Hoy() {
             </Texto>
             {!error && (
               <Link href="/(tabs)/rutinas" asChild>
-                <Pressable hitSlop={8}>
-                  <Texto peso="semi" tono="cian">Mirá el catálogo de tu gimnasio</Texto>
+                <Pressable hitSlop={14}>
+                  <Texto peso="semi" tono="cian">Mirá el catálogo de tu gimnasio.</Texto>
                 </Pressable>
               </Link>
             )}

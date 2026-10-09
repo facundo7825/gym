@@ -153,7 +153,10 @@ function FilaEjercicio({ ejercicio, onBorrar }: {
   return (
     <View style={estilos.separacion}>
       <Tarjeta style={estilos.fila}>
-        <Pressable onLongPress={drag} hitSlop={8} style={estilos.agarre}>
+        <Pressable
+          onLongPress={drag} hitSlop={8} style={estilos.agarre}
+          accessibilityRole="button" accessibilityLabel="Mantener apretado para reordenar"
+        >
           <Ionicons name="reorder-three" size={22} color={COLORES.textoTenue} />
         </Pressable>
         <View style={{ flex: 1 }}>
@@ -165,12 +168,15 @@ function FilaEjercicio({ ejercicio, onBorrar }: {
         </View>
         {ejercicio.ejercicios?.video_id && (
           <Link href={`/(tabs)/ejercicios/${ejercicio.ejercicios.id}`} asChild>
-            <Pressable hitSlop={10}>
+            <Pressable hitSlop={10} accessibilityRole="button" accessibilityLabel="Ver el video">
               <Ionicons name="play-circle" size={26} color={COLORES.cian} />
             </Pressable>
           </Link>
         )}
-        <Pressable onPress={onBorrar} hitSlop={12}>
+        <Pressable
+          onPress={onBorrar} hitSlop={12}
+          accessibilityRole="button" accessibilityLabel="Quitar el ejercicio"
+        >
           <Ionicons name="trash-outline" size={22} color={COLORES.rechazo} />
         </Pressable>
       </Tarjeta>

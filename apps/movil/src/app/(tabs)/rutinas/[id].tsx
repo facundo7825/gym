@@ -8,7 +8,7 @@ import { Link, Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'ex
 import ReorderableList, {
   reorderItems, useReorderableDrag, type ReorderableListReorderEvent,
 } from 'react-native-reorderable-list'
-import { COLORES, ESPACIO } from '@gym/core'
+import { COLORES, ESPACIO, TOQUE_MINIMO } from '@gym/core'
 import { supabase } from '@/lib/supabase'
 import { tomarRutina } from '@/lib/tomar-rutina'
 import { Boton, Campo, Fondo, Tarjeta, Texto } from '@/ui'
@@ -225,7 +225,7 @@ export default function PantallaRutina() {
                     </View>
                     {ej.ejercicios?.video_id && (
                       <Link href={`/(tabs)/ejercicios/${ej.ejercicios.id}`} asChild>
-                        <Pressable hitSlop={10}>
+                        <Pressable hitSlop={10} accessibilityRole="button" accessibilityLabel="Ver el video">
                           <Ionicons name="play-circle" size={26} color={COLORES.cian} />
                         </Pressable>
                       </Link>
@@ -283,15 +283,21 @@ function FilaDia({ dia, onBorrar }: { dia: Dia; onBorrar: () => void }) {
   return (
     <View style={estilos.separacion}>
       <Tarjeta style={estilos.fila}>
-        <Pressable onLongPress={drag} hitSlop={8} style={estilos.agarre}>
+        <Pressable
+          onLongPress={drag} hitSlop={8} style={estilos.agarre}
+          accessibilityRole="button" accessibilityLabel="Mantener apretado para reordenar"
+        >
           <Ionicons name="reorder-three" size={22} color={COLORES.textoTenue} />
         </Pressable>
         <Link href={`/(tabs)/rutinas/dia/${dia.id}`} asChild>
-          <Pressable style={{ flex: 1 }}>
+          <Pressable style={{ flex: 1, minHeight: TOQUE_MINIMO, justifyContent: 'center' }}>
             <Texto peso="semi">{dia.nombre}</Texto>
           </Pressable>
         </Link>
-        <Pressable onPress={onBorrar} hitSlop={12}>
+        <Pressable
+          onPress={onBorrar} hitSlop={12}
+          accessibilityRole="button" accessibilityLabel="Borrar el día"
+        >
           <Ionicons name="trash-outline" size={22} color={COLORES.rechazo} />
         </Pressable>
       </Tarjeta>
