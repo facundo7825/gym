@@ -1,7 +1,9 @@
 import { useCallback, useState } from 'react'
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native'
 import { Link, Stack, useFocusEffect } from 'expo-router'
-import { formatearKg, fusionarMarcas, type Marcas } from '@gym/core'
+import Ionicons from '@expo/vector-icons/Ionicons'
+import { COLORES, ESPACIO, formatearKg, fusionarMarcas, type Marcas } from '@gym/core'
+import { Fondo, Tarjeta, Texto } from '@/ui'
 import { supabase } from '@/lib/supabase'
 import { conLimite } from '@/lib/con-limite'
 import { duracion, fechaConDia } from '@/lib/fechas'
@@ -103,70 +105,94 @@ export default function Progreso() {
 
   if (estado === 'cargando') {
     return (
-      <View style={estilos.centrado}>
-        <Stack.Screen options={{ title: 'Progreso' }} />
-        <ActivityIndicator />
-      </View>
+      <Fondo>
+        <View style={estilos.centrado}>
+          <Stack.Screen options={{ title: 'Progreso' }} />
+          <ActivityIndicator color={COLORES.cian} />
+        </View>
+      </Fondo>
     )
   }
 
   if (estado === 'sin-conexion' || !datos) {
     return (
-      <View style={estilos.centrado}>
-        <Stack.Screen options={{ title: 'Progreso' }} />
-        <Text style={estilos.vacio}>Necesitás conexión para ver tu progreso.</Text>
-        <Text style={estilos.vacio}>Lo que entrenes sin señal se guarda igual y aparece acá después.</Text>
-      </View>
+      <Fondo>
+        <View style={estilos.centrado}>
+          <Stack.Screen options={{ title: 'Progreso' }} />
+          <Tarjeta style={estilos.sinConexion}>
+            <Ionicons name="cloud-offline-outline" size={32} color={COLORES.rechazo} />
+            <Texto tono="secundario" style={estilos.centro}>Necesitás conexión para ver tu progreso.</Texto>
+            <Texto variante="chico" tono="tenue" style={estilos.centro}>
+              Lo que entrenes sin señal se guarda igual y aparece acá después.
+            </Texto>
+          </Tarjeta>
+        </View>
+      </Fondo>
     )
   }
 
   return (
-    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 24 }}>
-      <Stack.Screen options={{ title: 'Progreso' }} />
+    <Fondo>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={estilos.lista}>
+        <Stack.Screen options={{ title: 'Progreso' }} />
 
-      <Text style={estilos.seccion}>Récords personales</Text>
-      {datos.records.length === 0 && (
-        <Text style={estilos.vacio}>Tus mejores marcas aparecen acá después de tu primer entrenamiento.</Text>
-      )}
-      {datos.records.map((r) => (
-        <Link key={r.ejercicio_id} href={`/(tabs)/progreso/ejercicio/${r.ejercicio_id}`} asChild>
-          <Pressable style={estilos.fila}>
-            <Text style={estilos.nombre}>{r.nombre}</Text>
-            <Text style={estilos.sub}>
-              {formatearKg(r.mejor_peso_kg)}kg · volumen {formatearKg(r.mejor_volumen_kg)}kg
-            </Text>
-          </Pressable>
-        </Link>
-      ))}
+        <Texto variante="mini" tono="tenue" peso="semi" style={estilos.seccion}>RÉCORDS PERSONALES</Texto>
+        {datos.records.length === 0 && (
+          <Texto tono="secundario" style={estilos.centro}>
+            Tus mejores marcas aparecen acá después de tu primer entrenamiento.
+          </Texto>
+        )}
+        {datos.records.map((r) => (
+          <Link key={r.ejercicio_id} href={`/(tabs)/progreso/ejercicio/${r.ejercicio_id}`} asChild>
+            <Pressable>
+              <Tarjeta style={estilos.fila}>
+                <Texto peso="semi" style={{ flex: 1 }}>{r.nombre}</Texto>
+                <View style={estilos.derecha}>
+                  <Texto variante="subtitulo" numerico>
+                    {formatearKg(r.mejor_peso_kg)}
+                    <Texto variante="chico" tono="secundario"> kg</Texto>
+                  </Texto>
+                  <Texto variante="mini" tono="secundario" numerico>
+                    volumen {formatearKg(r.mejor_volumen_kg)}kg
+                  </Texto>
+                </View>
+              </Tarjeta>
+            </Pressable>
+          </Link>
+        ))}
 
-      <Text style={estilos.seccion}>Historial</Text>
-      {datos.historial.length === 0 && (
-        <Text style={estilos.vacio}>Todavía no registraste ningún entrenamiento.</Text>
-      )}
-      {datos.historial.map((s) => (
-        <Link key={s.id} href={`/(tabs)/progreso/sesion/${s.id}`} asChild>
-          <Pressable style={estilos.fila}>
-            <Text style={estilos.nombre}>{fechaConDia(s.inicio)}</Text>
-            <Text style={estilos.sub}>
-              {s.rutina_dias?.nombre ?? 'Entrenamiento libre'}
-              {' · '}{s.series_registradas[0]?.count ?? 0} series
-              {' · '}{s.fin ? duracion(s.inicio, s.fin) : 'sin terminar'}
-            </Text>
-          </Pressable>
-        </Link>
-      ))}
-    </ScrollView>
+        <Texto variante="mini" tono="tenue" peso="semi" style={estilos.seccion}>HISTORIAL</Texto>
+        {datos.historial.length === 0 && (
+          <Texto tono="secundario" style={estilos.centro}>Todavía no registraste ningún entrenamiento.</Texto>
+        )}
+        {datos.historial.map((s) => (
+          <Link key={s.id} href={`/(tabs)/progreso/sesion/${s.id}`} asChild>
+            <Pressable>
+              <Tarjeta>
+                <Texto peso="semi">{fechaConDia(s.inicio)}</Texto>
+                <Texto variante="chico" tono="secundario">
+                  {s.rutina_dias?.nombre ?? 'Entrenamiento libre'}
+                  {' · '}{s.series_registradas[0]?.count ?? 0} series
+                  {' · '}
+                  {s.fin
+                    ? duracion(s.inicio, s.fin)
+                    : <Texto variante="chico" tono="pendiente">sin terminar</Texto>}
+                </Texto>
+              </Tarjeta>
+            </Pressable>
+          </Link>
+        ))}
+      </ScrollView>
+    </Fondo>
   )
 }
 
 const estilos = StyleSheet.create({
-  centrado: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 8 },
-  seccion: { fontSize: 13, fontWeight: '600', color: '#777', paddingHorizontal: 16, paddingTop: 20, paddingBottom: 6 },
-  fila: {
-    paddingHorizontal: 16, paddingVertical: 14, backgroundColor: '#fff',
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#ddd',
-  },
-  nombre: { fontSize: 16 },
-  sub: { color: '#777', fontSize: 13, marginTop: 2 },
-  vacio: { color: '#777', paddingHorizontal: 16, paddingVertical: 8, textAlign: 'center' },
+  centrado: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: ESPACIO.l },
+  sinConexion: { alignItems: 'center', gap: ESPACIO.s },
+  centro: { textAlign: 'center' },
+  lista: { padding: ESPACIO.l, gap: ESPACIO.s },
+  seccion: { marginTop: ESPACIO.l },
+  fila: { flexDirection: 'row', alignItems: 'center', gap: ESPACIO.m },
+  derecha: { alignItems: 'flex-end' },
 })

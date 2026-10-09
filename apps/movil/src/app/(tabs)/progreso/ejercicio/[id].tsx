@@ -1,14 +1,12 @@
 import { useEffect, useState } from 'react'
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
+import { ActivityIndicator, StyleSheet, View } from 'react-native'
 import { Stack, useLocalSearchParams } from 'expo-router'
-import { evolucionPorSesion, formatearKg, type FilaSerie, type PuntoEvolucion } from '@gym/core'
+import { COLORES, ESPACIO, evolucionPorSesion, formatearKg, type FilaSerie, type PuntoEvolucion } from '@gym/core'
 import { GraficoEvolucion } from '@/components/grafico-evolucion'
 import { supabase } from '@/lib/supabase'
 import { conLimite } from '@/lib/con-limite'
 import { misMembresias } from '@/lib/membresia'
-
-const VERDE = '#1b7f3b'
-const AZUL = '#2b6cb0'
+import { Chip, Fondo, Tarjeta, Texto } from '@/ui'
 
 type Vista = 'peso' | 'volumen'
 
@@ -77,23 +75,27 @@ export default function EvolucionEjercicio() {
   }, [id])
 
   if (estado === 'cargando') {
-    return <View style={estilos.centrado}><ActivityIndicator /></View>
+    return <Fondo><View style={estilos.centrado}><ActivityIndicator color={COLORES.cian} /></View></Fondo>
   }
 
   if (estado === 'sin-conexion') {
     return (
-      <View style={estilos.centrado}>
-        <Text style={estilos.vacio}>Necesitás conexión para ver tu progreso.</Text>
-      </View>
+      <Fondo>
+        <View style={estilos.centrado}>
+          <Texto tono="secundario" style={estilos.vacio}>Necesitás conexión para ver tu progreso.</Texto>
+        </View>
+      </Fondo>
     )
   }
 
   if (puntos.length === 0) {
     return (
-      <View style={estilos.centrado}>
-        <Stack.Screen options={{ title: nombre }} />
-        <Text style={estilos.vacio}>Todavía no registraste este ejercicio.</Text>
-      </View>
+      <Fondo>
+        <View style={estilos.centrado}>
+          <Stack.Screen options={{ title: nombre }} />
+          <Texto tono="secundario" style={estilos.vacio}>Todavía no registraste este ejercicio.</Texto>
+        </View>
+      </Fondo>
     )
   }
 
@@ -102,62 +104,47 @@ export default function EvolucionEjercicio() {
   const valores = puntos.map((p) => (vista === 'peso' ? p.pesoMax : p.volumen))
 
   return (
-    <View style={estilos.pantalla}>
-      <Stack.Screen options={{ title: nombre }} />
+    <Fondo>
+      <View style={estilos.pantalla}>
+        <Stack.Screen options={{ title: nombre }} />
 
-      <View style={estilos.resumen}>
-        <View style={estilos.marca}>
-          <Text style={estilos.marcaValor}>{formatearKg(mejorPeso)} kg</Text>
-          <Text style={estilos.marcaEtiqueta}>mejor peso</Text>
+        <View style={estilos.resumen}>
+          <Tarjeta style={estilos.marca}>
+            <Texto variante="subtitulo" numerico>{formatearKg(mejorPeso)} kg</Texto>
+            <Texto variante="mini" tono="secundario">mejor peso</Texto>
+          </Tarjeta>
+          <Tarjeta style={estilos.marca}>
+            <Texto variante="subtitulo" numerico>{formatearKg(mejorVolumen)} kg</Texto>
+            <Texto variante="mini" tono="secundario">mejor volumen</Texto>
+          </Tarjeta>
         </View>
-        <View style={estilos.marca}>
-          <Text style={estilos.marcaValor}>{formatearKg(mejorVolumen)} kg</Text>
-          <Text style={estilos.marcaEtiqueta}>mejor volumen</Text>
+
+        <View style={estilos.selector}>
+          <Chip texto="Peso máximo" activo={vista === 'peso'} onPress={() => setVista('peso')} />
+          <Chip texto="Volumen" activo={vista === 'volumen'} onPress={() => setVista('volumen')} />
         </View>
+
+        <Tarjeta>
+          <GraficoEvolucion valores={valores} fechas={puntos.map((p) => p.fecha)} />
+        </Tarjeta>
+
+        {puntos.length === 1 && (
+          <Texto tono="secundario" style={estilos.vacio}>Con una sesión más aparece la evolución.</Texto>
+        )}
+        <Texto variante="mini" tono="tenue">
+          {vista === 'peso' ? 'El peso más alto de cada sesión.' : 'Peso × repeticiones, sumado por sesión.'}
+          {' '}En dorado, los récords.
+        </Texto>
       </View>
-
-      <View style={estilos.selector}>
-        <Opcion texto="Peso máximo" activa={vista === 'peso'} onPress={() => setVista('peso')} />
-        <Opcion texto="Volumen" activa={vista === 'volumen'} onPress={() => setVista('volumen')} />
-      </View>
-
-      <GraficoEvolucion
-        valores={valores}
-        fechas={puntos.map((p) => p.fecha)}
-        color={vista === 'peso' ? VERDE : AZUL}
-      />
-
-      {puntos.length === 1 && (
-        <Text style={estilos.vacio}>Con una sesión más aparece la evolución.</Text>
-      )}
-      <Text style={estilos.leyenda}>
-        {vista === 'peso' ? 'El peso más alto de cada sesión.' : 'Peso × repeticiones, sumado por sesión.'}
-        {' '}En dorado, los récords.
-      </Text>
-    </View>
-  )
-}
-
-function Opcion({ texto, activa, onPress }: { texto: string; activa: boolean; onPress: () => void }) {
-  return (
-    <Pressable style={[estilos.opcion, activa && estilos.opcionActiva]} onPress={onPress}>
-      <Text style={activa ? estilos.opcionTextoActiva : estilos.opcionTexto}>{texto}</Text>
-    </Pressable>
+    </Fondo>
   )
 }
 
 const estilos = StyleSheet.create({
-  pantalla: { flex: 1, padding: 16, gap: 12, backgroundColor: '#fff' },
-  centrado: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-  vacio: { color: '#777', textAlign: 'center' },
-  resumen: { flexDirection: 'row', gap: 8 },
-  marca: { flex: 1, padding: 10, borderRadius: 8, backgroundColor: '#f2f2f2' },
-  marcaValor: { fontSize: 18, fontWeight: '600', fontVariant: ['tabular-nums'] },
-  marcaEtiqueta: { fontSize: 12, color: '#777' },
-  selector: { flexDirection: 'row', borderWidth: 1, borderColor: '#ccc', borderRadius: 8, overflow: 'hidden' },
-  opcion: { flex: 1, paddingVertical: 8, alignItems: 'center' },
-  opcionActiva: { backgroundColor: '#111' },
-  opcionTexto: { color: '#333' },
-  opcionTextoActiva: { color: '#fff', fontWeight: '600' },
-  leyenda: { color: '#777', fontSize: 12 },
+  pantalla: { flex: 1, padding: ESPACIO.l, gap: ESPACIO.m },
+  centrado: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: ESPACIO.l },
+  vacio: { textAlign: 'center' },
+  resumen: { flexDirection: 'row', gap: ESPACIO.s },
+  marca: { flex: 1 },
+  selector: { flexDirection: 'row', gap: ESPACIO.s },
 })

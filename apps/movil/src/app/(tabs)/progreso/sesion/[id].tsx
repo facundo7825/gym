@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native'
 import { Stack, useLocalSearchParams } from 'expo-router'
-import { detalleSeries } from '@gym/core'
+import { COLORES, ESPACIO, detalleSeries } from '@gym/core'
+import { Fondo, Tarjeta, Texto } from '@/ui'
 import { supabase } from '@/lib/supabase'
 import { conLimite } from '@/lib/con-limite'
 import { duracion, fechaConDia } from '@/lib/fechas'
@@ -59,14 +60,16 @@ export default function SesionDelHistorial() {
   }, [id])
 
   if (estado === 'cargando') {
-    return <View style={estilos.centrado}><ActivityIndicator /></View>
+    return <Fondo><View style={estilos.centrado}><ActivityIndicator color={COLORES.cian} /></View></Fondo>
   }
 
   if (estado === 'error' || !detalle) {
     return (
-      <View style={estilos.centrado}>
-        <Text style={estilos.vacio}>Necesitás conexión para ver este entrenamiento.</Text>
-      </View>
+      <Fondo>
+        <View style={estilos.centrado}>
+          <Texto tono="secundario" style={estilos.vacio}>Necesitás conexión para ver este entrenamiento.</Texto>
+        </View>
+      </Fondo>
     )
   }
 
@@ -81,37 +84,33 @@ export default function SesionDelHistorial() {
   }
 
   return (
-    <ScrollView contentContainerStyle={{ paddingBottom: 24 }}>
-      <Stack.Screen options={{ title: fechaConDia(detalle.inicio) }} />
+    <Fondo>
+      <ScrollView contentContainerStyle={estilos.lista}>
+        <Stack.Screen options={{ title: fechaConDia(detalle.inicio) }} />
 
-      <View style={estilos.encabezado}>
-        <Text style={estilos.titulo}>{detalle.rutina_dias?.nombre ?? 'Entrenamiento libre'}</Text>
-        <Text style={estilos.sub}>
-          {detalle.fin ? duracion(detalle.inicio, detalle.fin) : 'Sin terminar'}
-        </Text>
-      </View>
-
-      {[...grupos.entries()].map(([ejercicioId, g]) => (
-        <View key={ejercicioId} style={estilos.fila}>
-          <Text style={estilos.nombre}>{g.nombre}</Text>
-          <Text style={estilos.sub}>
-            {detalleSeries(g.series.map((s) => ({ peso_kg: Number(s.peso_kg), repeticiones: s.repeticiones })))}
-          </Text>
+        <View style={estilos.encabezado}>
+          <Texto variante="subtitulo">{detalle.rutina_dias?.nombre ?? 'Entrenamiento libre'}</Texto>
+          <Texto tono="secundario">
+            {detalle.fin ? duracion(detalle.inicio, detalle.fin) : 'Sin terminar'}
+          </Texto>
         </View>
-      ))}
-    </ScrollView>
+
+        {[...grupos.entries()].map(([ejercicioId, g]) => (
+          <Tarjeta key={ejercicioId}>
+            <Texto peso="semi">{g.nombre}</Texto>
+            <Texto variante="chico" tono="secundario" numerico>
+              {detalleSeries(g.series.map((s) => ({ peso_kg: Number(s.peso_kg), repeticiones: s.repeticiones })))}
+            </Texto>
+          </Tarjeta>
+        ))}
+      </ScrollView>
+    </Fondo>
   )
 }
 
 const estilos = StyleSheet.create({
-  centrado: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-  encabezado: { padding: 16 },
-  titulo: { fontSize: 20, fontWeight: '600' },
-  fila: {
-    paddingHorizontal: 16, paddingVertical: 14, backgroundColor: '#fff',
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#ddd',
-  },
-  nombre: { fontSize: 16 },
-  sub: { color: '#777', fontSize: 13, marginTop: 2 },
-  vacio: { color: '#777', textAlign: 'center' },
+  centrado: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: ESPACIO.l },
+  lista: { padding: ESPACIO.l, gap: ESPACIO.s },
+  encabezado: { paddingBottom: ESPACIO.s },
+  vacio: { textAlign: 'center' },
 })
