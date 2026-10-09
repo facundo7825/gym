@@ -784,7 +784,17 @@ export type Database = {
         Returns: undefined
       }
       duplicar_plantilla: { Args: { p_rutina_id: string }; Returns: string }
+      editar_datos_socio: {
+        Args: {
+          p_apellido: string
+          p_membership_id: string
+          p_nombre: string
+          p_telefono: string
+        }
+        Returns: undefined
+      }
       es_mi_sesion: { Args: { p_sesion_id: string }; Returns: boolean }
+      mi_codigo_qr: { Args: { p_gym_id: string }; Returns: string }
       mi_membresia: { Args: { p_gym_id: string }; Returns: string }
       mi_rol: {
         Args: { p_gym_id: string }

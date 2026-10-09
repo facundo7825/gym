@@ -53,7 +53,7 @@ describe('aislamiento de identidad entre gimnasios', () => {
       .from('memberships')
       .update({ rol: 'admin' })
       .eq('gym_id', e.gymA)
-      .select()
+      .select('id')
     // Sin política de update para el rol socio, no afecta ninguna fila.
     expect(data).toEqual([])
   })
@@ -63,7 +63,7 @@ describe('aislamiento de identidad entre gimnasios', () => {
       .from('memberships')
       .delete()
       .eq('gym_id', e.gymA)
-      .select()
+      .select('id')
     expect(data).toEqual([])
   })
 
