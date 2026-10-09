@@ -13,7 +13,7 @@ export function AvisoSincronizacion() {
   if (!estado.texto) return null
 
   return (
-    <View style={{ paddingHorizontal: ESPACIO.l, paddingVertical: ESPACIO.xs }}>
+    <View style={{ paddingVertical: ESPACIO.xs }}>
       <Aviso tono={estado.hayRechazadas ? 'rechazo' : 'pendiente'} texto={estado.texto} />
     </View>
   )

@@ -343,7 +343,9 @@ export default function Entrenar() {
           headerRight: () => <View style={estilos.reloj}><Cronometro inicio={inicio} /></View>,
         }}
       />
-      <AvisoSincronizacion />
+      <View style={{ paddingHorizontal: ESPACIO.l }}>
+        <AvisoSincronizacion />
+      </View>
       {record && <View style={estilos.record}><Aviso tono="record" texto={record} /></View>}
 
       <ScrollView contentContainerStyle={estilos.lista} keyboardShouldPersistTaps="handled">

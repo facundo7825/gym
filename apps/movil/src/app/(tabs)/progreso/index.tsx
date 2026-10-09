@@ -148,10 +148,10 @@ export default function Progreso() {
               <Tarjeta style={estilos.fila}>
                 <Texto peso="semi" style={{ flex: 1 }}>{r.nombre}</Texto>
                 <View style={estilos.derecha}>
-                  <Texto variante="subtitulo" numerico>
-                    {formatearKg(r.mejor_peso_kg)}
-                    <Texto variante="chico" tono="secundario"> kg</Texto>
-                  </Texto>
+                  <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: ESPACIO.xs }}>
+                    <Texto variante="subtitulo" numerico>{formatearKg(r.mejor_peso_kg)}</Texto>
+                    <Texto variante="chico" tono="secundario">kg</Texto>
+                  </View>
                   <Texto variante="mini" tono="secundario" numerico>
                     volumen {formatearKg(r.mejor_volumen_kg)}kg
                   </Texto>
