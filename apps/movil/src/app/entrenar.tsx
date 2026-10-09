@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
-import {
-  ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
-} from 'react-native'
+import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native'
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router'
+import * as Haptics from 'expo-haptics'
+import Ionicons from '@expo/vector-icons/Ionicons'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import {
-  aNumero, detectarRecord, filasPrecargadas, formatearKg, sesionAbierta, textoVezPasada,
-  validarSerie, volumen,
+  aNumero, COLORES, detectarRecord, ESPACIO, filasPrecargadas, formatearKg, sesionAbierta,
+  textoVezPasada, TOQUE_MINIMO, validarSerie, volumen,
   type FilaPrecargada, type Marcas, type SerieHecha, type SesionEnCola, type TipoRecord,
 } from '@gym/core'
+import { Aviso, Boton, Cronometro, FilaSerie, Fondo, Tarjeta, Texto } from '@/ui'
 import { AvisoSincronizacion } from '@/components/aviso-sincronizacion'
 import { BuscadorEjercicios, type EjercicioDelCatalogo } from '@/components/buscador-ejercicios'
 import * as local from '@/lib/local/cola'
@@ -61,6 +62,9 @@ export default function Entrenar() {
   const [abierto, setAbierto] = useState(0)
   const [eligiendo, setEligiendo] = useState(false)
   const [record, setRecord] = useState<string | null>(null)
+  // Para el cronómetro del encabezado. La sesión nace con la primera serie:
+  // hasta entonces no hay inicio y el cronómetro muestra 0:00.
+  const [inicio, setInicio] = useState<string | null>(null)
 
   // Refs y no estado: no se dibujan, y registrar() tiene que ver el valor
   // actual aunque el socio toque dos tildes seguidos.
@@ -93,6 +97,7 @@ export default function Entrenar() {
         const abierta = sesionAbierta(sesiones, ids)
         if (abierta) {
           sesion.current = abierta
+          setInicio(abierta.inicio)
           membresia.current = { id: abierta.membership_id, gym_id: abierta.gym_id }
           gymId.current = abierta.gym_id
           rutinaDiaId.current = abierta.rutina_dia_id
@@ -224,6 +229,7 @@ export default function Entrenar() {
         // Para retomarla: las marcas del teléfono se fusionan con las del
         // servidor, que ya incluirían lo hecho en esta sesión.
         await local.guardarCache(`marcas-previas:${sesion.current.id_local}`, marcasPrevias.current)
+        setInicio(sesion.current.inicio)
       }
 
       const anteriores = ej.filas.filter((f) => f.registrada).map(aSerie)
@@ -235,6 +241,9 @@ export default function Entrenar() {
         peso_kg: nueva.peso_kg,
         repeticiones: nueva.repeticiones,
       })
+      // Confirma el toque sin tener que mirar. Si el teléfono no vibra —o en
+      // web—, no pasa nada.
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {})
 
       avisarRecord(
         detectarRecord(marcasPrevias.current[ej.ejercicio_id], anteriores, nueva),
@@ -318,132 +327,117 @@ export default function Entrenar() {
 
   if (cargando) {
     return (
-      <View style={estilos.centrado}>
+      <Fondo style={estilos.centrado}>
         <Stack.Screen options={{ headerShown: true, title: '' }} />
-        <ActivityIndicator />
-      </View>
+        <ActivityIndicator color={COLORES.cian} />
+      </Fondo>
     )
   }
 
   return (
-    <View style={estilos.pantalla}>
-      <Stack.Screen options={{ headerShown: true, title: titulo }} />
+    <Fondo>
+      <Stack.Screen
+        options={{
+          headerShown: true,
+          title: titulo,
+          headerRight: () => <View style={estilos.reloj}><Cronometro inicio={inicio} /></View>,
+        }}
+      />
       <AvisoSincronizacion />
-      {record && (
-        <View style={estilos.record}>
-          <Text style={estilos.recordTexto}>{record}</Text>
-        </View>
-      )}
+      {record && <View style={estilos.record}><Aviso tono="record" texto={record} /></View>}
 
       <ScrollView contentContainerStyle={estilos.lista} keyboardShouldPersistTaps="handled">
         {ejercicios.length === 0 && (
-          <Text style={estilos.vacio}>Agregá el primer ejercicio para empezar.</Text>
+          <Tarjeta style={estilos.vacia}>
+            <Ionicons name="barbell-outline" size={30} color={COLORES.cian} />
+            <Texto tono="secundario">Agregá el primer ejercicio para empezar.</Texto>
+          </Tarjeta>
         )}
 
         {ejercicios.map((ej, iEj) => {
           const hechas = ej.filas.filter((f) => f.registrada).length
+          const completo = hechas === ej.filas.length && hechas > 0
           const estaAbierto = iEj === abierto
           return (
-            <View key={ej.ejercicio_id} style={estilos.ejercicio}>
-              <Pressable style={estilos.cabecera} onPress={() => setAbierto(estaAbierto ? -1 : iEj)}>
-                <Text style={estilos.nombre}>{ej.nombre}</Text>
-                <Text style={estilos.cuenta}>{hechas}/{ej.filas.length}</Text>
+            <Tarjeta key={ej.ejercicio_id} style={estilos.ejercicio}>
+              <Pressable
+                style={estilos.cabecera}
+                onPress={() => setAbierto(estaAbierto ? -1 : iEj)}
+                accessibilityRole="button"
+                accessibilityState={{ expanded: estaAbierto }}
+              >
+                <Texto variante="grande" style={{ flex: 1 }}>{ej.nombre}</Texto>
+                <Texto variante="chico" tono={completo ? 'cian' : 'secundario'} peso="semi" numerico>
+                  {hechas}/{ej.filas.length}
+                </Texto>
+                <Ionicons
+                  name={estaAbierto ? 'chevron-up' : 'chevron-down'}
+                  size={18} color={COLORES.textoTenue}
+                />
               </Pressable>
 
               {estaAbierto && (
                 <View style={estilos.cuerpo}>
-                  {ej.vezPasada && <Text style={estilos.pasada}>{ej.vezPasada}</Text>}
+                  {ej.vezPasada && (
+                    <Texto variante="chico" tono="secundario" numerico>{ej.vezPasada}</Texto>
+                  )}
 
                   {ej.filas.map((f, iFila) => (
-                    <View key={iFila} style={[estilos.serie, f.registrada && estilos.serieHecha]}>
-                      <Text style={estilos.numero}>{iFila + 1}</Text>
-                      <TextInput
-                        style={estilos.campo} value={f.peso} placeholder="kg"
-                        editable={!f.registrada} keyboardType="decimal-pad"
-                        onChangeText={(v) => editar(iEj, iFila, 'peso', v)}
-                      />
-                      <Text style={estilos.por}>×</Text>
-                      <TextInput
-                        style={estilos.campo} value={f.reps} placeholder="reps"
-                        editable={!f.registrada} keyboardType="number-pad"
-                        onChangeText={(v) => editar(iEj, iFila, 'reps', v)}
-                      />
-                      <Pressable
-                        style={[estilos.tilde, f.registrada && estilos.tildeHecho]}
-                        disabled={f.registrada} hitSlop={6}
-                        onPress={() => void registrar(iEj, iFila)}
-                      >
-                        <Text style={f.registrada ? estilos.tildeTextoHecho : estilos.tildeTexto}>✓</Text>
-                      </Pressable>
-                    </View>
+                    <FilaSerie
+                      key={iFila}
+                      numero={iFila + 1}
+                      peso={f.peso}
+                      reps={f.reps}
+                      registrada={f.registrada}
+                      onCambiarPeso={(v) => editar(iEj, iFila, 'peso', v)}
+                      onCambiarReps={(v) => editar(iEj, iFila, 'reps', v)}
+                      onTildar={() => void registrar(iEj, iFila)}
+                    />
                   ))}
 
-                  <Pressable onPress={() => agregarFila(iEj)} hitSlop={6}>
-                    <Text style={estilos.enlace}>+ Serie</Text>
+                  <Pressable onPress={() => agregarFila(iEj)} hitSlop={8} style={estilos.agregarSerie}>
+                    <Ionicons name="add" size={18} color={COLORES.cian} />
+                    <Texto peso="semi" tono="cian">Serie</Texto>
                   </Pressable>
                 </View>
               )}
-            </View>
+            </Tarjeta>
           )
         })}
 
-        <Pressable style={estilos.botonSecundario} onPress={() => setEligiendo(true)}>
-          <Text>+ Agregar ejercicio</Text>
-        </Pressable>
-        <Pressable style={estilos.botonPrincipal} onPress={terminar}>
-          <Text style={estilos.botonPrincipalTexto}>Terminar</Text>
-        </Pressable>
+        <Boton titulo="Agregar ejercicio" variante="secundario" icono="add" onPress={() => setEligiendo(true)} />
+        <Boton titulo="Terminar" icono="checkmark-done" onPress={terminar} />
       </ScrollView>
 
       <Modal visible={eligiendo} animationType="slide" onRequestClose={() => setEligiendo(false)}>
-        <SafeAreaView style={{ flex: 1 }}>
-          <Pressable style={{ padding: 16 }} onPress={() => setEligiendo(false)}>
-            <Text style={estilos.enlace}>Cancelar</Text>
-          </Pressable>
-          <BuscadorEjercicios onElegir={(e) => void agregarEjercicio(e)} />
-        </SafeAreaView>
+        <Fondo>
+          <SafeAreaView style={{ flex: 1 }}>
+            <Pressable style={estilos.cancelar} onPress={() => setEligiendo(false)} hitSlop={8}>
+              <Texto peso="semi" tono="cian">Cancelar</Texto>
+            </Pressable>
+            <BuscadorEjercicios onElegir={(e) => void agregarEjercicio(e)} />
+          </SafeAreaView>
+        </Fondo>
       </Modal>
-    </View>
+    </Fondo>
   )
 }
 
-const VERDE = '#1b7f3b'
-
 const estilos = StyleSheet.create({
-  pantalla: { flex: 1, backgroundColor: '#fff' },
-  centrado: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  lista: { padding: 12, gap: 8 },
-  vacio: { textAlign: 'center', color: '#777', marginTop: 32 },
-  record: { padding: 12, backgroundColor: 'rgba(214,158,46,0.18)' },
-  recordTexto: { fontWeight: '600', textAlign: 'center' },
-  ejercicio: { borderWidth: 1, borderColor: '#e2e2e2', borderRadius: 10, overflow: 'hidden' },
+  centrado: { alignItems: 'center', justifyContent: 'center' },
+  reloj: { marginRight: ESPACIO.l },
+  record: { paddingHorizontal: ESPACIO.l, paddingTop: ESPACIO.s },
+  lista: { padding: ESPACIO.l, gap: ESPACIO.m, paddingBottom: ESPACIO.xl * 2 },
+  vacia: { alignItems: 'center', gap: ESPACIO.s, paddingVertical: ESPACIO.xl },
+  ejercicio: { padding: 0 },
   cabecera: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    padding: 14, backgroundColor: '#f4f4f4',
+    flexDirection: 'row', alignItems: 'center', gap: ESPACIO.s,
+    minHeight: TOQUE_MINIMO + 12, paddingHorizontal: ESPACIO.l,
   },
-  nombre: { fontSize: 16, fontWeight: '600', flex: 1 },
-  cuenta: { color: '#777', fontVariant: ['tabular-nums'] },
-  cuerpo: { padding: 10, gap: 8 },
-  pasada: { color: '#666', fontSize: 13, backgroundColor: '#f6f6f6', padding: 8, borderRadius: 6 },
-  serie: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  serieHecha: { opacity: 0.55 },
-  numero: { width: 18, color: '#999', textAlign: 'center' },
-  campo: {
-    flex: 1, borderWidth: 1, borderColor: '#ddd', borderRadius: 8,
-    paddingVertical: 10, textAlign: 'center', fontSize: 16, fontVariant: ['tabular-nums'],
+  cuerpo: { paddingHorizontal: ESPACIO.l, paddingBottom: ESPACIO.l, gap: ESPACIO.s },
+  agregarSerie: {
+    flexDirection: 'row', alignItems: 'center', gap: ESPACIO.xs,
+    alignSelf: 'flex-start', minHeight: TOQUE_MINIMO,
   },
-  por: { color: '#999' },
-  tilde: {
-    width: 48, height: 44, borderRadius: 8, borderWidth: 1, borderColor: '#ccc',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  tildeHecho: { backgroundColor: VERDE, borderColor: VERDE },
-  tildeTexto: { fontSize: 18, color: '#999' },
-  tildeTextoHecho: { fontSize: 18, color: '#fff' },
-  enlace: { color: '#111', fontWeight: '600', textDecorationLine: 'underline' },
-  botonSecundario: {
-    borderWidth: 1, borderColor: '#ddd', borderRadius: 10, padding: 14, alignItems: 'center',
-  },
-  botonPrincipal: { backgroundColor: '#111', borderRadius: 10, padding: 16, alignItems: 'center' },
-  botonPrincipalTexto: { color: '#fff', fontWeight: '600', fontSize: 16 },
+  cancelar: { padding: ESPACIO.l, minHeight: TOQUE_MINIMO },
 })
