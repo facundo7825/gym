@@ -34,6 +34,125 @@ export type Database = {
   }
   public: {
     Tables: {
+      checkins: {
+        Row: {
+          created_at: string
+          dia: string
+          gym_id: string
+          id: string
+          membership_id: string
+          metodo: Database["public"]["Enums"]["metodo_checkin"]
+          registrado_por: string | null
+        }
+        Insert: {
+          created_at?: string
+          dia: string
+          gym_id: string
+          id?: string
+          membership_id: string
+          metodo: Database["public"]["Enums"]["metodo_checkin"]
+          registrado_por?: string | null
+        }
+        Update: {
+          created_at?: string
+          dia?: string
+          gym_id?: string
+          id?: string
+          membership_id?: string
+          metodo?: Database["public"]["Enums"]["metodo_checkin"]
+          registrado_por?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checkins_gym_id_fkey"
+            columns: ["gym_id"]
+            isOneToOne: false
+            referencedRelation: "gyms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checkins_membresia_fk"
+            columns: ["membership_id", "gym_id"]
+            isOneToOne: false
+            referencedRelation: "memberships"
+            referencedColumns: ["id", "gym_id"]
+          },
+          {
+            foreignKeyName: "checkins_registrado_por_fkey"
+            columns: ["registrado_por"]
+            isOneToOne: false
+            referencedRelation: "memberships"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cuotas: {
+        Row: {
+          created_at: string
+          fecha_pago: string
+          gym_id: string
+          id: string
+          membership_id: string
+          metodo: Database["public"]["Enums"]["metodo_pago"]
+          moneda: string
+          monto: number
+          notas: string | null
+          periodo_desde: string
+          periodo_hasta: string
+          registrado_por: string | null
+        }
+        Insert: {
+          created_at?: string
+          fecha_pago: string
+          gym_id: string
+          id?: string
+          membership_id: string
+          metodo: Database["public"]["Enums"]["metodo_pago"]
+          moneda?: string
+          monto: number
+          notas?: string | null
+          periodo_desde: string
+          periodo_hasta: string
+          registrado_por?: string | null
+        }
+        Update: {
+          created_at?: string
+          fecha_pago?: string
+          gym_id?: string
+          id?: string
+          membership_id?: string
+          metodo?: Database["public"]["Enums"]["metodo_pago"]
+          moneda?: string
+          monto?: number
+          notas?: string | null
+          periodo_desde?: string
+          periodo_hasta?: string
+          registrado_por?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cuotas_gym_id_fkey"
+            columns: ["gym_id"]
+            isOneToOne: false
+            referencedRelation: "gyms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cuotas_membresia_fk"
+            columns: ["membership_id", "gym_id"]
+            isOneToOne: false
+            referencedRelation: "memberships"
+            referencedColumns: ["id", "gym_id"]
+          },
+          {
+            foreignKeyName: "cuotas_registrado_por_fkey"
+            columns: ["registrado_por"]
+            isOneToOne: false
+            referencedRelation: "memberships"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ejercicios: {
         Row: {
           creado_por: string | null
@@ -185,6 +304,7 @@ export type Database = {
           created_at: string
           estado: Database["public"]["Enums"]["estado_membresia"]
           fecha_alta: string
+          foto: string | null
           gym_id: string
           id: string
           rol: Database["public"]["Enums"]["rol_membresia"]
@@ -195,6 +315,7 @@ export type Database = {
           created_at?: string
           estado?: Database["public"]["Enums"]["estado_membresia"]
           fecha_alta?: string
+          foto?: string | null
           gym_id: string
           id?: string
           rol?: Database["public"]["Enums"]["rol_membresia"]
@@ -205,6 +326,7 @@ export type Database = {
           created_at?: string
           estado?: Database["public"]["Enums"]["estado_membresia"]
           fecha_alta?: string
+          foto?: string | null
           gym_id?: string
           id?: string
           rol?: Database["public"]["Enums"]["rol_membresia"]
@@ -726,6 +848,8 @@ export type Database = {
         | "abdominales"
         | "antebrazo"
         | "cuerpo_completo"
+      metodo_checkin: "qr" | "manual"
+      metodo_pago: "efectivo" | "transferencia" | "otro"
       nivel_rutina: "principiante" | "intermedio" | "avanzado"
       objetivo_rutina:
         | "fuerza"
@@ -891,6 +1015,8 @@ export const Constants = {
         "antebrazo",
         "cuerpo_completo",
       ],
+      metodo_checkin: ["qr", "manual"],
+      metodo_pago: ["efectivo", "transferencia", "otro"],
       nivel_rutina: ["principiante", "intermedio", "avanzado"],
       objetivo_rutina: [
         "fuerza",
