@@ -134,14 +134,10 @@ export default function Rutinas() {
         )}
       />
 
-      <Link href="/(tabs)/rutinas/nueva" asChild>
-        <Pressable style={estilos.flotante} accessibilityRole="button">
-          {/* El toque lo recibe el Link; el Boton es solo la cara. */}
-          <View pointerEvents="none">
-            <Boton titulo="+ Crear rutina" onPress={() => {}} />
-          </View>
-        </Pressable>
-      </Link>
+      <Boton
+        titulo="+ Crear rutina" onPress={() => router.push('/(tabs)/rutinas/nueva')}
+        style={estilos.flotante}
+      />
     </Fondo>
   )
 }

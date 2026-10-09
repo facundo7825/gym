@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react'
 import { ActivityIndicator, Alert, Pressable, StyleSheet, View } from 'react-native'
 import Ionicons from '@expo/vector-icons/Ionicons'
-import { Link, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router'
+import { Link, Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
 import ReorderableList, {
   reorderItems, useReorderableDrag, type ReorderableListReorderEvent,
 } from 'react-native-reorderable-list'
@@ -19,6 +19,7 @@ interface EjercicioEnDia {
 }
 
 export default function PantallaDia() {
+  const router = useRouter()
   const { diaId } = useLocalSearchParams<{ diaId: string }>()
   const [nombreDia, setNombreDia] = useState<string | null>(null)
   const [ejercicios, setEjercicios] = useState<EjercicioEnDia[]>([])
@@ -133,14 +134,11 @@ export default function PantallaDia() {
         }
       />
 
-      <Link href={{ pathname: '/(tabs)/rutinas/elegir-ejercicio', params: { diaId } }} asChild>
-        <Pressable style={estilos.botonAgregar} accessibilityRole="button">
-          {/* El toque lo recibe el Link; el Boton es solo la cara. */}
-          <View pointerEvents="none">
-            <Boton titulo="+ Agregar ejercicio" onPress={() => {}} />
-          </View>
-        </Pressable>
-      </Link>
+      <Boton
+        titulo="+ Agregar ejercicio"
+        onPress={() => router.push({ pathname: '/(tabs)/rutinas/elegir-ejercicio', params: { diaId } })}
+        style={estilos.botonAgregar}
+      />
     </Fondo>
   )
 }
