@@ -20,8 +20,10 @@ export default function LayoutRaiz() {
   const [cargando, setCargando] = useState(true)
   const segmentos = useSegments()
   // Sin la fuente cargada la primera pantalla se pinta con la del sistema y
-  // "salta" al cargar: se espera, igual que se espera la sesión.
-  const [fuentesListas] = useFonts({ Sora_400Regular, Sora_600SemiBold, Sora_700Bold })
+  // "salta" al cargar: se espera, igual que se espera la sesión. Si la fuente
+  // falla se sigue con la del sistema en vez de quedar en el spinner: la app
+  // funciona sin señal y no hay forma de reintentar.
+  const [fuentesListas, errorFuentes] = useFonts({ Sora_400Regular, Sora_600SemiBold, Sora_700Bold })
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -50,7 +52,7 @@ export default function LayoutRaiz() {
     return iniciarSincronizacion()
   }, [usuarioId])
 
-  if (cargando || !fuentesListas) {
+  if (cargando || (!fuentesListas && !errorFuentes)) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', backgroundColor: COLORES.fondo }}>
         <ActivityIndicator color={COLORES.cian} />
