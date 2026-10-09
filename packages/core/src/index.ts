@@ -39,3 +39,7 @@ export {
   evolucionPorSesion, marcarRecords, geometriaGrafico, MARGENES_GRAFICO,
 } from './evolucion'
 export type { FilaSerie, PuntoEvolucion, Margenes, Geometria } from './evolucion'
+export {
+  COLORES, DEGRADE, RADIOS, ESPACIO, TAMANOS, TOQUE_MINIMO, VARIABLES_CSS, contraste,
+} from './tema'
+export { formatearCronometro } from './tiempo'
