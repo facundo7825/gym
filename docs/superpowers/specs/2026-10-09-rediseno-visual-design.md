@@ -78,9 +78,9 @@ Solo valores, sin nada de interfaz, para que los usen las dos apps.
 | `FilaSerie` | Número, peso, repeticiones y tilde de 44 px que se llena con el degradé; las hechas se atenúan |
 | `Aviso` | Pendiente (ámbar), rechazo (coral), récord (degradé) |
 
-La fuente se carga en el layout raíz con `useFonts` antes de mostrar la primera pantalla. Encabezados y barra de pestañas usan un tema de navegación oscuro propio. Íconos: `@expo/vector-icons`, que ya viene con Expo.
+La fuente se carga en el layout raíz con `useFonts` antes de mostrar la primera pantalla. Encabezados y barra de pestañas usan un tema de navegación oscuro propio. Íconos: `@expo/vector-icons` (Ionicons). No viene incluido en este proyecto —el template de Expo 57 trae `expo-symbols`, que usa nombres distintos por plataforma—, así que se instala; funciona igual en iOS, Android y web.
 
-Dependencias nuevas de la app: `@expo-google-fonts/sora`, `expo-linear-gradient`, `expo-haptics`.
+Dependencias nuevas de la app: `@expo-google-fonts/sora`, `expo-linear-gradient`, `expo-haptics`, `@expo/vector-icons`.
 
 ### Panel
 
