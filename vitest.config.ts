@@ -2,7 +2,9 @@ import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
   test: {
-    include: ['tests/**/*.test.ts'],
+    // Solo la base. Los de tests/funciones necesitan además
+    // `npx supabase functions serve`, y van con su propia configuración.
+    include: ['tests/rls/**/*.test.ts'],
     // Los tests de RLS comparten una única base local. Si corrieran en
     // paralelo se pisarían los datos entre sí.
     fileParallelism: false,
