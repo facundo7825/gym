@@ -43,3 +43,9 @@ export {
   COLORES, DEGRADE, RADIOS, ESPACIO, TAMANOS, TOQUE_MINIMO, VARIABLES_CSS, contraste,
 } from './tema'
 export { formatearCronometro } from './tiempo'
+export {
+  METODOS_PAGO, ETIQUETA_METODO_PAGO, sumarDias, diasEntre, sumarMes, primerDiaDelMes, hoyEnZona,
+  formatearFecha, estadoCuota, estaAlDia, textoEstadoCuota, periodoPropuesto, montoPropuesto,
+  validarPago, textoPeriodo,
+} from './cuotas'
+export type { Fecha, PeriodoCuota, EstadoCuota, MetodoPago } from './cuotas'
