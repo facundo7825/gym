@@ -24,6 +24,8 @@
   --color-pendiente-suave: rgba(245,158,11,0.12);
   --color-rechazo: #f87171;
   --color-rechazo-suave: rgba(248,113,113,0.12);
+  --color-vigente: #34d399;
+  --color-vigente-suave: rgba(52,211,153,0.12);
   --color-record: #facc15;
   --color-velo: rgba(0,0,0,0.4);
   --radius-chico: 10px;

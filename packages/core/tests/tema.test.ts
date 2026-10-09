@@ -32,6 +32,10 @@ describe('el texto se lee sobre el fondo', () => {
     expect(contraste(COLORES.pendiente, COLORES.fondo)).toBeGreaterThanOrEqual(4.5)
     expect(contraste(COLORES.rechazo, COLORES.fondo)).toBeGreaterThanOrEqual(4.5)
   })
+
+  it('el verde de cuota al día también', () => {
+    expect(contraste(COLORES.vigente, COLORES.fondo)).toBeGreaterThanOrEqual(4.5)
+  })
 })
 
 // Tailwind 4 define el tema del panel en CSS y no puede importar este archivo:

@@ -49,3 +49,7 @@ export {
   validarPago, textoPeriodo,
 } from './cuotas'
 export type { Fecha, PeriodoCuota, EstadoCuota, MetodoPago } from './cuotas'
+export {
+  LARGO_MINIMO_CONTRASENA, esCodigoQr, debeProcesarLectura, generarContrasena, normalizarEmail,
+  validarAlta, validarCambioContrasena,
+} from './socios'
