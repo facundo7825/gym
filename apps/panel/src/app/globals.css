@@ -43,3 +43,79 @@ body {
   color: var(--color-texto);
   font-family: var(--font-sans);
 }
+
+/*
+ * Las piezas del panel, el equivalente de apps/movil/src/ui. Solo usan las
+ * variables del @theme: ningún color escrito a mano. Las sombras y los halos
+ * mezclan la variable con transparente en vez de repetir el valor.
+ */
+@layer components {
+  .tarjeta {
+    background: var(--color-superficie);
+    border: 1px solid var(--color-superficie-borde);
+    border-radius: var(--radius-grande);
+    padding: 1rem;
+  }
+
+  .titulo-pagina { font-size: 1.5rem; line-height: 2rem; font-weight: 700; letter-spacing: -0.01em; }
+
+  .etiqueta {
+    font-size: 0.6875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--color-texto-tenue);
+  }
+
+  .enlace { color: var(--color-cian); font-weight: 600; }
+  .enlace:hover { text-decoration: underline; }
+
+  .fondo-degrade { background-image: linear-gradient(135deg, var(--color-violeta), var(--color-cian)); }
+
+  .texto-degrade {
+    background-image: linear-gradient(90deg, var(--color-violeta), var(--color-cian));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+
+  .boton {
+    display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+    min-height: 44px; padding: 0 1.25rem; border-radius: var(--radius-medio);
+    font-size: 0.875rem; font-weight: 600; cursor: pointer;
+    transition: opacity 150ms, transform 150ms;
+  }
+  .boton:active { transform: scale(0.98); }
+  .boton:disabled { opacity: 0.4; cursor: default; }
+
+  .boton-principal {
+    color: var(--color-texto);
+    background-image: linear-gradient(135deg, var(--color-violeta), var(--color-cian));
+    box-shadow: 0 6px 18px color-mix(in srgb, var(--color-violeta) 35%, transparent);
+  }
+  .boton-secundario {
+    color: var(--color-texto);
+    background: var(--color-superficie-elevada);
+    border: 1px solid var(--color-superficie-borde);
+  }
+  .boton-peligro { color: var(--color-rechazo); background: var(--color-rechazo-suave); }
+
+  .campo {
+    width: 100%; min-height: 44px; padding: 0.625rem 1rem;
+    border-radius: var(--radius-medio);
+    background: var(--color-hundido); color: var(--color-texto);
+    border: 1px solid var(--color-superficie-borde);
+  }
+  .campo::placeholder { color: var(--color-texto-tenue); }
+  .campo:focus {
+    outline: none; border-color: var(--color-violeta);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-violeta) 25%, transparent);
+  }
+  select.campo option { background: var(--color-fondo); color: var(--color-texto); }
+
+  .chip {
+    display: inline-flex; align-items: center; min-height: 36px; padding: 0 0.875rem;
+    border-radius: 999px; font-size: 0.8125rem;
+    color: var(--color-texto-secundario);
+    background: var(--color-superficie); border: 1px solid var(--color-superficie-borde);
+  }
+  .chip-activo {
+    color: var(--color-texto); border-color: transparent;
+    background-image: linear-gradient(135deg, var(--color-violeta), var(--color-cian));
+  }
+}
