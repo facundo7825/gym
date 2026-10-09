@@ -18,11 +18,24 @@ export default async function Socios() {
     .eq('estado', 'activa')
 
   // Hasta tres por socio: lo resuelve la vista (0015). La RLS ya limita esto al
-  // propio gimnasio.
-  const { data: sesiones } = await supabase
+  // propio gimnasio. Tres por socio son más de 1000 filas con más de ~333
+  // socios, y PostgREST corta en silencio en ~1000: se pide de a páginas hasta
+  // que una venga corta. El segundo order desempata para que las páginas no se
+  // pisen. Si una página falla se usa lo acumulado: en el panel, mostrar lo que
+  // hay es mejor que nada.
+  const pagina = (desde: number) => supabase
     .from('ultimas_sesiones')
     .select('id, membership_id, inicio, fin, dia_nombre, series')
     .order('inicio', { ascending: false })
+    .order('id')
+    .range(desde, desde + 999)
+  const sesiones: NonNullable<Awaited<ReturnType<typeof pagina>>['data']> = []
+  for (let desde = 0; ; desde += 1000) {
+    const { data, error } = await pagina(desde)
+    if (error || !data) break
+    sesiones.push(...data)
+    if (data.length < 1000) break
+  }
 
   const plantillas = rutinas?.filter((r) => r.tipo === 'plantilla') ?? []
   const activas = rutinas?.filter((r) => r.tipo === 'activa') ?? []
@@ -42,7 +55,7 @@ export default async function Socios() {
         {(socios ?? []).map((s) => {
           const suyas = activas.filter((r) => r.propietario_id === s.id)
           const nombre = `${s.profiles?.nombre ?? ''} ${s.profiles?.apellido ?? ''}`.trim()
-          const ultimas = (sesiones ?? []).filter((x) => x.membership_id === s.id)
+          const ultimas = sesiones.filter((x) => x.membership_id === s.id)
 
           return (
             <li key={s.id} className="space-y-2 px-4 py-3">
