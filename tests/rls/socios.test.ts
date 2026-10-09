@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { admin, crearEscenario, type Escenario } from './ayudas'
 
 // ---------------------------------------------------------------------------
@@ -463,6 +463,104 @@ describe('el día del check-in es el del gimnasio', () => {
       expect(fila!.dia).toBe(hoyEn(zona))
     })
   }
+})
+
+describe('el bucket de fotos aísla por gimnasio', () => {
+  let e: Escenario
+  let rutaA: string
+  const jpeg = () => new Blob([new Uint8Array([0xff, 0xd8, 0xff, 0xe0])], { type: 'image/jpeg' })
+  const subir = (cliente: Escenario['comoAdminA'], ruta: string) =>
+    cliente.storage.from('fotos-socios').upload(ruta, jpeg(), { contentType: 'image/jpeg', upsert: true })
+
+  beforeAll(async () => {
+    e = await crearEscenario()
+    rutaA = `${e.gymA}/${e.socioAMembresiaId}.jpg`
+  })
+
+  // El bucket es compartido por todas las corridas: lo que se sube se borra.
+  afterAll(async () => {
+    await admin.storage.from('fotos-socios').remove([rutaA])
+  })
+
+  it('el admin sube la foto de un socio de su gimnasio', async () => {
+    const { error } = await subir(e.comoAdminA, rutaA)
+    expect(error).toBeNull()
+  })
+
+  it('el admin la reemplaza', async () => {
+    const { error } = await subir(e.comoAdminA, rutaA)
+    expect(error).toBeNull()
+  })
+
+  it('el entrenador no puede subir fotos', async () => {
+    const { error } = await subir(e.comoEntrenadorA, `${e.gymA}/${e.socioA2MembresiaId}.jpg`)
+    expect(error).not.toBeNull()
+  })
+
+  it('el admin de A no puede subir en la carpeta de B', async () => {
+    const { error } = await subir(e.comoAdminA, `${e.gymB}/${e.socioBMembresiaId}.jpg`)
+    expect(error).not.toBeNull()
+  })
+
+  it('la ruta tiene que ser la de una membresía real del gimnasio', async () => {
+    const { error } = await subir(e.comoAdminA, `${e.gymA}/${crypto.randomUUID()}.jpg`)
+    expect(error).not.toBeNull()
+  })
+
+  it('el bucket solo acepta JPEG', async () => {
+    const { error } = await e.comoAdminA.storage.from('fotos-socios').upload(
+      `${e.gymA}/${e.socioA2MembresiaId}.jpg`,
+      new Blob([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], { type: 'image/png' }),
+      { contentType: 'image/png', upsert: true },
+    )
+    expect(error).not.toBeNull()
+  })
+
+  it('el entrenador ve la foto: la necesita al escanear', async () => {
+    const { error } = await e.comoEntrenadorA.storage.from('fotos-socios').download(rutaA)
+    expect(error).toBeNull()
+  })
+
+  it('el socio ve la suya', async () => {
+    const { error } = await e.comoSocioA.storage.from('fotos-socios').download(rutaA)
+    expect(error).toBeNull()
+  })
+
+  it('otro socio del mismo gimnasio no la ve', async () => {
+    const { error } = await e.comoSocioA2.storage.from('fotos-socios').download(rutaA)
+    expect(error).not.toBeNull()
+  })
+
+  it('alguien de otro gimnasio no la ve', async () => {
+    const { error } = await e.comoSocioB.storage.from('fotos-socios').download(rutaA)
+    expect(error).not.toBeNull()
+  })
+})
+
+describe('usuario_por_email es solo para la función de alta', () => {
+  let e: Escenario
+
+  beforeAll(async () => {
+    e = await crearEscenario()
+  })
+
+  it('un usuario autenticado no la puede llamar', async () => {
+    const { error } = await e.comoAdminA.rpc('usuario_por_email', { p_email: 'x@ejemplo.com' })
+    expect(error).not.toBeNull()
+  })
+
+  it('service_role encuentra la cuenta sin importar mayúsculas ni espacios', async () => {
+    const { data: usuario } = await admin.auth.admin.getUserById(e.socioAId)
+    const email = usuario.user!.email!
+    const { data, error } = await admin.rpc('usuario_por_email', { p_email: `  ${email.toUpperCase()} ` })
+    expect(error).toBeNull()
+    expect(data).toBe(e.socioAId)
+  })
+
+  it('un email sin cuenta devuelve null', async () => {
+    const { data } = await admin.rpc('usuario_por_email', { p_email: 'nadie-tiene-esto@ejemplo.com' })
+    expect(data).toBeNull()
+  })
 })
 
 // Se exportan para los describe de las tareas siguientes, que viven en este

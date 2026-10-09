@@ -805,7 +805,9 @@ export type Database = {
       mis_gyms: { Args: never; Returns: string[] }
       puedo_editar_dia: { Args: { p_dia_id: string }; Returns: boolean }
       puedo_editar_rutina: { Args: { p_rutina_id: string }; Returns: boolean }
+      puedo_subir_foto: { Args: { p_ruta: string }; Returns: boolean }
       puedo_ver_dia: { Args: { p_dia_id: string }; Returns: boolean }
+      puedo_ver_foto: { Args: { p_ruta: string }; Returns: boolean }
       puedo_ver_rutina: { Args: { p_rutina_id: string }; Returns: boolean }
       puedo_ver_rutina_fila: {
         Args: {
@@ -849,6 +851,7 @@ export type Database = {
           repeticiones: number
         }[]
       }
+      usuario_por_email: { Args: { p_email: string }; Returns: string }
     }
     Enums: {
       estado_membresia: "activo" | "inactivo"
