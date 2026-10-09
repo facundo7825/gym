@@ -134,10 +134,12 @@ Todos los identificadores son `uuid`. Todas las tablas llevan `created_at timest
 `id` (= `auth.users.id`) · `nombre` · `apellido` · `telefono` · `avatar_url` · `fecha_nacimiento` · `es_superadmin` (bool, default false)
 
 **`memberships`**
-`id` · `gym_id` · `user_id` · `rol` (`socio` \| `entrenador` \| `admin`) · `estado` (`activo` \| `inactivo`) · `fecha_alta` · `codigo_qr` (texto opaco aleatorio, único)
+`id` · `gym_id` · `user_id` · `rol` (`socio` \| `entrenador` \| `admin`) · `estado` (`activo` \| `inactivo`) · `fecha_alta` · `codigo_qr` (texto opaco aleatorio, único) · `foto`
 Restricción: único por (`gym_id`, `user_id`).
 
 `codigo_qr` es un valor aleatorio sin significado, no el `id`. Se puede revocar y regenerar sin tocar el resto de los datos.
+
+La foto de verificación vive en la membresía y no en `profiles.avatar_url`: es del gimnasio que la sacó y solo la cambia su admin. `codigo_qr` solo lo lee su dueño. Ver la sección 1 del [diseño de la etapa 4](2026-10-09-socios-cuotas-checkin-design.md).
 
 ### Ejercicios, máquinas y videos
 
@@ -365,7 +367,7 @@ Se usan *workspaces* de npm. Sin herramientas adicionales.
 
 La pestaña Hoy muestra la rutina activa del socio y sus días; es el socio quien elige qué día mirar —no hay una detección automática de "qué toca hoy"—. *Empezar* abre la pantalla de sesión con ese día, y *Entrenar libre* la abre vacía. Si una sesión quedó sin terminar, Hoy ofrece seguirla o terminarla.
 
-La pestaña Perfil todavía no existe: llega con las etapas 4 y 5, junto con el QR, las cuotas y las notificaciones.
+La pestaña Perfil llegó con la etapa 4: QR, cuota, asistencias, cambio de contraseña y cerrar sesión. Las preferencias de notificación llegan con la etapa 5.
 
 ### Panel del empleado — cinco secciones
 
@@ -412,7 +414,7 @@ Cada etapa termina en algo mostrable y usable.
 | **1** | Ejercicios y videos | El empleado sube un video; el socio lo ve. Catálogo global + propio del gym |
 | **2** | Rutinas | Catálogo, armador propio y asignación del entrenador. **Primera demo vendible** |
 | **3** | Entrenar | Registro serie por serie sin conexión, récords y gráficos |
-| **4** | Administración | Socios, cuotas y check-in con QR |
+| **4** | Administración | Socios, cuotas y check-in con QR. Implementada |
 | **5** | Publicación | Notificaciones push y publicación en Play Store y App Store |
 
 **Orden.** Las etapas 1 y 2 tienen dependencia real: una rutina se compone de ejercicios. De ahí en adelante es elección: primero lo del socio (2 y 3), después lo del gimnasio (4), porque valida antes si la propuesta sirve.

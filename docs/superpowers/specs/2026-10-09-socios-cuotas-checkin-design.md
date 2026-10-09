@@ -1,7 +1,7 @@
 # Diseño — Socios, cuotas y check-in con QR (etapa 4)
 
 **Fecha:** 2026-10-09
-**Estado:** Diseño aprobado. Falta el plan.
+**Estado:** Implementado. Plan: [`2026-10-09-socios-cuotas-checkin.md`](../plans/2026-10-09-socios-cuotas-checkin.md).
 **Desarrolla:** [Diseño general](2026-08-27-gym-saas-design.md), secciones 5 (Asistencia y cuotas), 9 (Check-in con QR) y 12 (Pantallas)
 
 ---
@@ -97,6 +97,12 @@ gimnasio.
 | Bucket `fotos-socios` leer | su gym | su gym | la suya |
 | Bucket `fotos-socios` escribir | su gym | no | no |
 
+**El código QR solo lo lee su dueño.** `memberships_leer` deja ver todas las
+membresías del gimnasio, y con ellas el `codigo_qr` de cualquiera: un socio
+podía generarse el QR de otro. Se cerró la columna con permisos por columna
+(`0017_rls_socios.sql`) y el socio obtiene el suyo con `mi_codigo_qr`. Se
+detectó al escribir el plan; no estaba en el diseño original.
+
 Los objetos del bucket se guardan bajo `<gym_id>/<membership_id>.jpg`; las
 políticas de storage parten la ruta y comparan el primer segmento con
 `mis_gyms()`.
@@ -122,6 +128,18 @@ El check-in manual usa una segunda función, `checkin_manual(p_membership_id
 uuid)`, con los mismos pasos 2 a 4 y `metodo = 'manual'`. Comparten el cuerpo a
 través de una función interna, para que la respuesta sea idéntica.
 
+### Decisiones tomadas en la implementación
+
+**`registrado_por` es una clave foránea compuesta.** En `cuotas` y `checkins`,
+`registrado_por` va con el `gym_id`: `(registrado_por, gym_id)`, como pide la
+regla general de la sección 4. Un pago o una entrada no pueden figurar
+registrados por alguien de otro gimnasio.
+
+**`editar_datos_socio` alcanza solo a socios.** La función que usa el admin para
+editar nombre, apellido y teléfono desde la ficha toca únicamente membresías con
+rol `socio`, activas o dadas de baja. El admin no edita desde el panel el perfil
+de entrenadores ni de otros admins.
+
 ---
 
 ## 2. Lógica en `packages/core`
@@ -130,7 +148,8 @@ través de una función interna, para que la respuesta sea idéntica.
 
 - **`estadoCuota(cuotas, hoy)`** devuelve uno de:
   `{ tipo: 'vigente', hasta }` (último día cubierto) ·
-  `{ tipo: 'vencida', desde, dias }` · `{ tipo: 'sin_pagos' }`.
+  `{ tipo: 'vencida', desde, dias }` · `{ tipo: 'sin_pagos' }` ·
+  `{ tipo: 'empieza', desde }`: una cuota que todavía no empezó, sin ninguna antes.
 - **`periodoPropuesto(cuotas, hoy)`** devuelve `{ desde, hasta }`:
   - con cuotas previas, `desde` = el `periodo_hasta` más tardío, aunque ya haya
     pasado: la regla acordada es **desde el vencimiento anterior aunque pague
@@ -183,7 +202,8 @@ La barra lateral suma *Escanear* y *Asistencia* a *Socios*. En el celular,
 
 ### Socios (`/socios`, página existente ampliada)
 
-- Buscador por nombre y filtros: *Todos* · *Cuota vencida* · *Inactivos*.
+- Buscador por nombre y filtros: *Todos* · *Sin cuota al día* · *Inactivos*.
+  *Sin cuota al día* incluye a quien nunca pagó: para quien cobra es la misma lista.
 - Cada tarjeta conserva lo que tiene hoy (rutinas, últimas sesiones, asignar) y
   suma la foto o las iniciales y una etiqueta de estado de cuota. El nombre lleva
   a la ficha.
@@ -198,9 +218,11 @@ La barra lateral suma *Escanear* y *Asistencia* a *Socios*. En el celular,
 ### Ficha del socio (`/socios/[id]`, nueva)
 
 - **Encabezado:** foto con *Sacar foto* (`<input type="file" accept="image/*"
-  capture="user">`: en el celular abre la cámara, en la computadora deja elegir
+  capture="environment">`: en el celular abre la cámara, en la computadora deja elegir
   un archivo), nombre, teléfono, fecha de alta y estado de cuota. La foto se
-  reduce en el navegador a 800 px de lado mayor en JPEG antes de subirla.
+  reduce en el navegador a 800 px de lado mayor en JPEG antes de subirla. El
+  archivo original puede pesar hasta 20 MB —una foto de celular pasa fácil los 5—;
+  lo que se sube es la versión reducida, y el límite de 5 MB es del bucket.
 - **Pagos:** *Registrar pago* abre un formulario con período, monto y método
   propuestos (`periodoPropuesto`, `montoPropuesto`, último método usado), fecha
   de pago = hoy y notas. Abajo, la lista de pagos con *Borrar*, que pide
@@ -287,7 +309,7 @@ Al usuario nunca se le muestra un código de error.
 | Escaneo | Texto que no es un código del sistema | Se ignora sin interrumpir |
 | Escaneo | Permiso de cámara negado | Explica cómo habilitarlo; el buscador manual sigue disponible |
 | Pago | Período invertido o monto negativo | El formulario no deja guardar; la base lo rechaza por `check` |
-| Foto | No es imagen o pasa de 5 MB | "Elegí una imagen de hasta 5 MB" |
+| Foto | No es imagen o pasa de 20 MB | "Elegí una imagen de hasta 20 MB" |
 | App | Cambiar contraseña sin señal | "Necesitás conexión para cambiar la contraseña" |
 | App | Contraseña actual incorrecta | "La contraseña actual no es correcta" |
 

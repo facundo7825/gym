@@ -14,11 +14,13 @@ Es multi-gimnasio: cada gym contratante tiene sus datos aislados de los demás.
 
 ## Estado
 
-En construcción. Las etapas 0 a 3 están implementadas: esquema con RLS,
+En construcción. Las etapas 0 a 4 están implementadas: esquema con RLS,
 autenticación en el panel y la app, ejercicios, máquinas y videos, rutinas
 —catálogo del gimnasio, armador propio del socio y asignación del entrenador—, y
 registro de entrenamiento serie por serie, que funciona sin señal, con récords,
-historial y evolución por ejercicio.
+historial y evolución por ejercicio; y socios y cuotas: alta de socios desde el
+panel, ficha con foto, pagos y asistencias, check-in por QR desde el celular del
+mostrador, y la pestaña Perfil de la app con el QR, la cuota y las asistencias.
 
 📄 **[Diseño completo](docs/superpowers/specs/2026-08-27-gym-saas-design.md)** — es la
 referencia del proyecto: modelo de datos, decisiones de arquitectura y por qué se
@@ -42,7 +44,7 @@ tomó cada una, qué queda fuera de alcance y en qué orden se construye.
 | 1 | Ejercicios, máquinas y videos | Hecha |
 | 2 | Rutinas: catálogo, armador propio y asignación | Hecha |
 | 3 | Registro de entrenamiento, modo sin conexión y progreso | Hecha |
-| 4 | Socios, cuotas y check-in con QR | Pendiente |
+| 4 | Socios, cuotas y check-in con QR | Hecha |
 | 5 | Notificaciones push y publicación en las tiendas | Pendiente |
 
 Al terminar la etapa 2 hay una demo completa para mostrarle a un gimnasio real.
