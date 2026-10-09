@@ -15,6 +15,7 @@ const TONOS = {
   pendiente: COLORES.pendiente,
   rechazo: COLORES.rechazo,
   cian: COLORES.cian,
+  vigente: COLORES.vigente,
 } as const
 
 type Variante = keyof typeof TAMANOS

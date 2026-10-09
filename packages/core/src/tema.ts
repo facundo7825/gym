@@ -39,6 +39,9 @@ export const COLORES = {
   /** "Cuota vigente": el único verde del sistema. */
   vigente: '#34D399',
   vigenteSuave: 'rgba(52,211,153,0.12)',
+  /** El QR va negro sobre blanco puro aunque la app sea oscura: un lector lo toma mejor. */
+  qrFondo: '#FFFFFF',
+  qrTinta: '#000000',
   /** Puntos de récord en el gráfico. */
   record: '#FACC15',
   /** Lo que oscurece la pantalla detrás de un modal. */

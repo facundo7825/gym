@@ -20,3 +20,27 @@ export function duracion(inicio: string, fin: string): string {
   if (minutos < 60) return `${minutos} min`
   return `${Math.floor(minutos / 60)} h ${minutos % 60} min`
 }
+
+const dosCifras = (n: number) => String(n).padStart(2, '0')
+
+/**
+ * Hoy en el teléfono, como 'AAAA-MM-DD'. La app no usa la zona del gimnasio
+ * —Intl con timeZone depende de cómo se compiló Hermes—: el socio está en la
+ * misma ciudad que su gimnasio.
+ */
+export function hoyLocal(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${dosCifras(d.getMonth() + 1)}-${dosCifras(d.getDate())}`
+}
+
+/** "18:40" */
+export function horaCorta(iso: string): string {
+  const d = new Date(iso)
+  return `${dosCifras(d.getHours())}:${dosCifras(d.getMinutes())}`
+}
+
+/** "08/10 a las 19:20" */
+export function fechaYHora(iso: string): string {
+  const d = new Date(iso)
+  return `${dosCifras(d.getDate())}/${dosCifras(d.getMonth() + 1)} a las ${horaCorta(iso)}`
+}

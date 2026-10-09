@@ -1,12 +1,11 @@
 import { useCallback, useState } from 'react'
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native'
-import { Link, Tabs, useFocusEffect, useRouter } from 'expo-router'
+import { Link, useFocusEffect, useRouter } from 'expo-router'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import Ionicons from '@expo/vector-icons/Ionicons'
-import { COLORES, ESPACIO, TOQUE_MINIMO, diaAMostrar, sesionAbierta, type SesionEnCola } from '@gym/core'
+import { COLORES, ESPACIO, diaAMostrar, sesionAbierta, type SesionEnCola } from '@gym/core'
 import { AvisoSincronizacion } from '@/components/aviso-sincronizacion'
 import { Boton, Chip, Fondo, Tarjeta, Texto } from '@/ui'
-import { cerrarSesion } from '@/lib/cerrar-sesion'
 import { leerCola } from '@/lib/local/cola'
 import { membresiasGuardadas } from '@/lib/membresia'
 import { cargarRutinaActiva, type EjercicioDelDia, type RutinaActiva } from '@/lib/rutina-activa'
@@ -85,22 +84,6 @@ export default function Hoy() {
 
   const entrenarLibre = () => router.push('/entrenar')
 
-  // Cerrar sesión pasa al encabezado: era un botón suelto al pie de cada estado.
-  const encabezado = (
-    <Tabs.Screen
-      options={{
-        headerRight: () => (
-          <Pressable
-            onPress={() => void cerrarSesion()} hitSlop={8} style={estilos.salir}
-            accessibilityRole="button" accessibilityLabel="Cerrar sesión"
-          >
-            <Ionicons name="log-out-outline" size={22} color={COLORES.textoSecundario} />
-          </Pressable>
-        ),
-      }}
-    />
-  )
-
   // Lo que va arriba en todos los casos: el estado de la cola y la sesión que
   // quedó abierta. Una sesión abierta no depende de tener rutina ni señal.
   const avisos = (
@@ -127,7 +110,6 @@ export default function Hoy() {
   if (cargando) {
     return (
       <Fondo style={estilos.centrado}>
-        {encabezado}
         <ActivityIndicator color={COLORES.cian} />
       </Fondo>
     )
@@ -136,7 +118,6 @@ export default function Hoy() {
   if (error || !rutina) {
     return (
       <Fondo>
-        {encabezado}
         <ScrollView contentContainerStyle={estilos.contenido}>
           {avisos}
           <Tarjeta style={estilos.vacia}>
@@ -169,7 +150,6 @@ export default function Hoy() {
 
   return (
     <Fondo>
-      {encabezado}
       <ScrollView contentContainerStyle={estilos.contenido}>
         {avisos}
         {guardada && (
@@ -239,7 +219,6 @@ const estilos = StyleSheet.create({
   centrado: { alignItems: 'center', justifyContent: 'center' },
   centradoTexto: { textAlign: 'center' },
   contenido: { padding: ESPACIO.l, gap: ESPACIO.l, paddingBottom: ESPACIO.xl * 2 },
-  salir: { minWidth: TOQUE_MINIMO, minHeight: TOQUE_MINIMO, alignItems: 'center', justifyContent: 'center', marginRight: ESPACIO.s },
   abierta: { gap: ESPACIO.m },
   filaAbierta: { flexDirection: 'row', alignItems: 'center', gap: ESPACIO.s },
   accionesAbierta: { flexDirection: 'row', gap: ESPACIO.s },
