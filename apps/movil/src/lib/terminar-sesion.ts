@@ -7,9 +7,12 @@ import { actualizarEstado, sincronizar } from '@/lib/sincronizar'
  * del teléfono.
  *
  * Las marcas se actualizan acá y no serie por serie: la pantalla de sesión
- * compara contra las de ANTES de la sesión. Si se actualizaran en el medio,
- * una sesión retomada tomaría como "previa" lo que se hizo en ella misma, y la
- * primera vez de un ejercicio dejaría de ser la primera.
+ * compara contra las de ANTES de la sesión. Esas se guardan al crearla
+ * (`marcas-previas:<id_local>`) y es contra ese snapshot que se compara al
+ * retomar, porque las marcas del teléfono pueden recibir lo del servidor, y el
+ * servidor ya cuenta las series sincronizadas de la sesión abierta. Si se
+ * actualizaran serie por serie, la primera vez de un ejercicio dejaría de ser
+ * la primera.
  *
  * La usan la pantalla de sesión y el aviso de "entrenamiento sin terminar" de Hoy.
  */

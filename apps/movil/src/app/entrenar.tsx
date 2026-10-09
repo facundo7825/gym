@@ -85,6 +85,7 @@ export default function Entrenar() {
       const rutina = await rutinaGuardada()
       let dia: DiaDeRutina | null = null
       let hechas: local.SerieLocal[] = []
+      let snapshot: Marcas | null = null
 
       if (retomar) {
         const { sesiones } = await local.leerCola()
@@ -96,7 +97,10 @@ export default function Entrenar() {
           gymId.current = abierta.gym_id
           rutinaDiaId.current = abierta.rutina_dia_id
           hechas = await local.seriesDeSesionLocal(abierta.id_local)
-          dia = rutina?.rutina_dias.find((d) => d.id === abierta.rutina_dia_id) ?? null
+          // Las de antes de ESTA sesión, guardadas al crearla. Las de leerMarcas
+          // ya pueden incluir sus series sincronizadas.
+          snapshot = await local.leerCache<Marcas>(`marcas-previas:${abierta.id_local}`)
+          dia =rutina?.rutina_dias.find((d) => d.id === abierta.rutina_dia_id) ?? null
         }
       } else {
         dia = diaId ? (rutina?.rutina_dias.find((d) => d.id === diaId) ?? null) : null
@@ -105,7 +109,10 @@ export default function Entrenar() {
       }
 
       membresia.current ??= await membresiaPara(gymId.current)
-      if (membresia.current) marcasPrevias.current = await local.leerMarcas(membresia.current.id)
+      // Sin snapshot (una sesión creada antes de guardarlo) se cae a las marcas
+      // del teléfono, como antes.
+      if (snapshot) marcasPrevias.current = snapshot
+      else if (membresia.current) marcasPrevias.current = await local.leerMarcas(membresia.current.id)
       if (dia) setTitulo(dia.nombre)
 
       const delDia = [...(dia?.rutina_ejercicios ?? [])]
@@ -208,11 +215,16 @@ export default function Entrenar() {
 
       // La sesión nace con la primera serie: abrir la pantalla y salir sin
       // tildar nada no deja una sesión vacía en el historial.
-      sesion.current ??= await local.crearSesionLocal({
-        membership_id: membresia.current.id,
-        gym_id: membresia.current.gym_id,
-        rutina_dia_id: rutinaDiaId.current,
-      })
+      if (!sesion.current) {
+        sesion.current = await local.crearSesionLocal({
+          membership_id: membresia.current.id,
+          gym_id: membresia.current.gym_id,
+          rutina_dia_id: rutinaDiaId.current,
+        })
+        // Para retomarla: las marcas del teléfono se fusionan con las del
+        // servidor, que ya incluirían lo hecho en esta sesión.
+        await local.guardarCache(`marcas-previas:${sesion.current.id_local}`, marcasPrevias.current)
+      }
 
       const anteriores = ej.filas.filter((f) => f.registrada).map(aSerie)
       await local.agregarSerieLocal({
