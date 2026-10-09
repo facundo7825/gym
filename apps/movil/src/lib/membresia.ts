@@ -51,6 +51,39 @@ export async function membresiasGuardadas(): Promise<Membresia[]> {
   return (await leerCache<Membresia[]>(clave(userId))) ?? []
 }
 
+const claveTodas = (userId: string) => `membresias-todas:${userId}`
+
+/**
+ * Todas las membresías de quien tiene la sesión iniciada, activas o no. Es para
+ * la cola: lo de una membresía dada de baja tiene que enviarse, que el servidor
+ * lo rechace y que el aviso lo diga, en vez de quedar fuera de la lista y
+ * desaparecer en silencio. Misma estrategia que misMembresias.
+ */
+export async function todasMisMembresias(): Promise<Membresia[]> {
+  const userId = await usuarioActual()
+  if (!userId) return []
+
+  const respuesta = await conLimite(
+    supabase
+      .from('memberships')
+      .select('id, gym_id')
+      .eq('user_id', userId)
+      .order('created_at'),
+  )
+  if (respuesta && !respuesta.error && respuesta.data) {
+    await guardarCache(claveTodas(userId), respuesta.data)
+    return respuesta.data
+  }
+  return (await leerCache<Membresia[]>(claveTodas(userId))) ?? []
+}
+
+/** Lo guardado de todasMisMembresias, sin ir a la red. */
+export async function todasGuardadas(): Promise<Membresia[]> {
+  const userId = await usuarioActual()
+  if (!userId) return []
+  return (await leerCache<Membresia[]>(claveTodas(userId))) ?? []
+}
+
 /**
  * Con qué membresía se registra una sesión. Con un gimnasio dado, la de ese
  * gimnasio o ninguna: con la de otro, el servidor la rechazaría, porque el día

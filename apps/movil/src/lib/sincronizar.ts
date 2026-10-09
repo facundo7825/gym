@@ -6,7 +6,7 @@ import {
   type Clasificacion, type Marcas, type Operacion, type ResumenCola, type SesionEnCola,
 } from '@gym/core'
 import { supabase } from '@/lib/supabase'
-import { membresiasGuardadas, misMembresias } from '@/lib/membresia'
+import { todasGuardadas, todasMisMembresias } from '@/lib/membresia'
 import * as local from '@/lib/local/cola'
 
 /**
@@ -57,7 +57,7 @@ export function sincronizar(): Promise<void> {
 }
 
 async function correr(): Promise<void> {
-  const membresias = (await misMembresias()).map((m) => m.id)
+  const membresias = (await todasMisMembresias()).map((m) => m.id)
   if (membresias.length === 0) return
 
   // Tres tandas alcanzan: sesiones, sus series, sus cierres.
@@ -193,7 +193,7 @@ async function refrescarMarcas(membresias: string[]): Promise<void> {
 }
 
 export async function resumenActual(): Promise<ResumenCola> {
-  const membresias = (await membresiasGuardadas()).map((m) => m.id)
+  const membresias = (await todasGuardadas()).map((m) => m.id)
   const { sesiones, series } = await local.leerCola()
   return resumenCola(sesiones, series, membresias)
 }
