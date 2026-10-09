@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
-import { StyleSheet, Text, View } from 'react-native'
+import { View } from 'react-native'
+import { ESPACIO } from '@gym/core'
+import { Aviso } from '@/ui'
 import { escucharEstado, type EstadoVisible } from '@/lib/sincronizar'
 
 /** "3 series sin sincronizar". El socio nunca queda con la duda de si se guardó. */
@@ -11,14 +13,8 @@ export function AvisoSincronizacion() {
   if (!estado.texto) return null
 
   return (
-    <View style={[estilos.aviso, estado.hayRechazadas && estilos.rechazo]}>
-      <Text style={estilos.texto}>{estado.texto}</Text>
+    <View style={{ paddingHorizontal: ESPACIO.l, paddingVertical: ESPACIO.xs }}>
+      <Aviso tono={estado.hayRechazadas ? 'rechazo' : 'pendiente'} texto={estado.texto} />
     </View>
   )
 }
-
-const estilos = StyleSheet.create({
-  aviso: { paddingHorizontal: 16, paddingVertical: 6, backgroundColor: 'rgba(200,140,0,0.15)' },
-  rechazo: { backgroundColor: 'rgba(176,0,0,0.12)' },
-  texto: { fontSize: 13, color: '#555' },
-})
