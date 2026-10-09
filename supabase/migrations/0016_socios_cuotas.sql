@@ -34,13 +34,16 @@ create table cuotas (
   moneda          text not null default 'ARS',
   metodo          metodo_pago not null,
   fecha_pago      date not null,
-  -- set null: si el empleado que cobró se va, el pago queda.
-  registrado_por  uuid references memberships(id) on delete set null,
+  -- set null: si el empleado que cobró se va, el pago queda. La FK lleva el
+  -- gym_id para que el registrador sea del mismo gimnasio que la cuota.
+  registrado_por  uuid,
   notas           text,
   created_at      timestamptz not null default now(),
 
   constraint cuotas_membresia_fk foreign key (membership_id, gym_id)
     references memberships (id, gym_id) on delete cascade,
+  constraint cuotas_registrador_fk foreign key (registrado_por, gym_id)
+    references memberships (id, gym_id) on delete set null (registrado_por),
   constraint cuotas_periodo_valido check (periodo_hasta > periodo_desde),
   constraint cuotas_monto_no_negativo check (monto >= 0)
 );
@@ -52,7 +55,8 @@ create table checkins (
   id              uuid primary key default gen_random_uuid(),
   gym_id          uuid not null references gyms(id) on delete cascade,
   membership_id   uuid not null,
-  registrado_por  uuid references memberships(id) on delete set null,
+  -- set null: si el empleado se va, la entrada queda. La FK lleva el gym_id.
+  registrado_por  uuid,
   metodo          metodo_checkin not null,
   -- La fecha local del gimnasio en el momento de la entrada. La calcula
   -- registrar_checkin (0018) con gyms.zona_horaria; nunca la manda el
@@ -62,6 +66,8 @@ create table checkins (
 
   constraint checkins_membresia_fk foreign key (membership_id, gym_id)
     references memberships (id, gym_id) on delete cascade,
+  constraint checkins_registrador_fk foreign key (registrado_por, gym_id)
+    references memberships (id, gym_id) on delete set null (registrado_por),
   constraint checkins_uno_por_dia unique (membership_id, dia)
 );
 

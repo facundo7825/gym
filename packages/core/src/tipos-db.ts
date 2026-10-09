@@ -78,11 +78,11 @@ export type Database = {
             referencedColumns: ["id", "gym_id"]
           },
           {
-            foreignKeyName: "checkins_registrado_por_fkey"
-            columns: ["registrado_por"]
+            foreignKeyName: "checkins_registrador_fk"
+            columns: ["registrado_por", "gym_id"]
             isOneToOne: false
             referencedRelation: "memberships"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "gym_id"]
           },
         ]
       }
@@ -145,11 +145,11 @@ export type Database = {
             referencedColumns: ["id", "gym_id"]
           },
           {
-            foreignKeyName: "cuotas_registrado_por_fkey"
-            columns: ["registrado_por"]
+            foreignKeyName: "cuotas_registrador_fk"
+            columns: ["registrado_por", "gym_id"]
             isOneToOne: false
             referencedRelation: "memberships"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "gym_id"]
           },
         ]
       }

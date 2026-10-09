@@ -74,6 +74,13 @@ describe('esquema de cuotas y asistencia', () => {
     expect(error?.code).toBe('23503')
   })
 
+  it('una cuota del gimnasio A no puede haber sido registrada por una membresía del B', async () => {
+    const { error } = await admin.from('cuotas').insert(
+      cuotaPara(e.gymA, e.socioAMembresiaId, { registrado_por: e.socioBMembresiaId }),
+    )
+    expect(error?.code).toBe('23503')
+  })
+
   it('un check-in del gimnasio A no puede apuntar a una membresía del B', async () => {
     const { error } = await admin
       .from('checkins')
