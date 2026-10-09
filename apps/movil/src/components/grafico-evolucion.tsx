@@ -24,7 +24,12 @@ export function GraficoEvolucion({ valores, fechas }: { valores: number[]; fecha
       {ancho > 0 && (
         <Svg width={ancho} height={ALTO}>
           <Defs>
-            <LinearGradient id="trazo" x1="0" y1="0" x2="1" y2="0">
+            {/* En unidades del usuario: con las del cuadro, una línea horizontal
+                (todos los valores iguales) tiene alto cero y el degradé no se pinta. */}
+            <LinearGradient
+              id="trazo" gradientUnits="userSpaceOnUse"
+              x1={MARGENES_GRAFICO.izq} x2={ancho - MARGENES_GRAFICO.der} y1={0} y2={0}
+            >
               <Stop offset="0" stopColor={DEGRADE.desde} />
               <Stop offset="1" stopColor={DEGRADE.hasta} />
             </LinearGradient>
