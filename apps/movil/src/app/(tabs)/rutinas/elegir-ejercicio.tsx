@@ -1,10 +1,10 @@
 import { useState } from 'react'
-import {
-  Alert, Modal, Pressable, StyleSheet, Text, TextInput, View,
-} from 'react-native'
+import { Alert, Modal, StyleSheet, View } from 'react-native'
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router'
 import { BuscadorEjercicios, type EjercicioDelCatalogo } from '@/components/buscador-ejercicios'
+import { COLORES, ESPACIO, RADIOS } from '@gym/core'
 import { supabase } from '@/lib/supabase'
+import { Boton, Campo, Fondo, Texto } from '@/ui'
 
 type Ejercicio = EjercicioDelCatalogo
 
@@ -16,7 +16,7 @@ export default function ElegirEjercicio() {
   const [seleccionado, setSeleccionado] = useState<Ejercicio | null>(null)
 
   return (
-    <View style={{ flex: 1 }}>
+    <Fondo>
       <Stack.Screen options={{ title: 'Agregar ejercicio' }} />
 
       <BuscadorEjercicios onElegir={setSeleccionado} />
@@ -29,7 +29,7 @@ export default function ElegirEjercicio() {
           onAgregado={() => router.back()}
         />
       )}
-    </View>
+    </Fondo>
   )
 }
 
@@ -85,29 +85,25 @@ function AltaEjercicio({
     <Modal transparent animationType="slide" onRequestClose={onCancelar}>
       <View style={estilos.fondoModal}>
         <View style={estilos.hoja}>
-          <Text style={estilos.tituloModal}>{ejercicio.nombre}</Text>
+          <Texto variante="grande" style={estilos.tituloModal}>{ejercicio.nombre}</Texto>
 
-          <Text style={estilos.etiquetaCampo}>Series</Text>
-          <TextInput style={estilos.campo} value={series} onChangeText={setSeries}
+          <Texto variante="chico" tono="secundario" style={estilos.etiquetaCampo}>Series</Texto>
+          <Campo numerico value={series} onChangeText={setSeries}
             keyboardType="number-pad" />
 
-          <Text style={estilos.etiquetaCampo}>Repeticiones</Text>
-          <TextInput style={estilos.campo} value={repeticiones} onChangeText={setRepeticiones}
+          <Texto variante="chico" tono="secundario" style={estilos.etiquetaCampo}>Repeticiones</Texto>
+          <Campo numerico value={repeticiones} onChangeText={setRepeticiones}
             placeholder="8-12" />
 
-          <Text style={estilos.etiquetaCampo}>Descanso (segundos)</Text>
-          <TextInput style={estilos.campo} value={descanso} onChangeText={setDescanso}
+          <Texto variante="chico" tono="secundario" style={estilos.etiquetaCampo}>Descanso (segundos)</Texto>
+          <Campo numerico value={descanso} onChangeText={setDescanso}
             keyboardType="number-pad" />
 
           <View style={estilos.accionesModal}>
-            <Pressable style={estilos.botonCancelar} onPress={onCancelar} disabled={guardando}>
-              <Text>Cancelar</Text>
-            </Pressable>
-            <Pressable style={estilos.botonAgregar} onPress={agregar} disabled={guardando}>
-              <Text style={estilos.botonAgregarTexto}>
-                {guardando ? 'Agregando…' : 'Agregar'}
-              </Text>
-            </Pressable>
+            <Boton variante="secundario" titulo="Cancelar" onPress={onCancelar}
+              deshabilitado={guardando} style={{ flex: 1 }} />
+            <Boton titulo={guardando ? 'Agregando…' : 'Agregar'} onPress={agregar}
+              deshabilitado={guardando} style={{ flex: 1 }} />
           </View>
         </View>
       </View>
@@ -116,21 +112,14 @@ function AltaEjercicio({
 }
 
 const estilos = StyleSheet.create({
-  fondoModal: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' },
+  fondoModal: { flex: 1, justifyContent: 'flex-end', backgroundColor: COLORES.velo },
   hoja: {
-    backgroundColor: '#fff', borderTopLeftRadius: 16, borderTopRightRadius: 16,
-    padding: 20, gap: 4,
+    backgroundColor: COLORES.fondo,
+    borderTopLeftRadius: RADIOS.enorme, borderTopRightRadius: RADIOS.enorme,
+    borderTopWidth: 1, borderColor: COLORES.superficieBorde,
+    padding: ESPACIO.xl, gap: ESPACIO.xs,
   },
-  tituloModal: { fontSize: 18, fontWeight: '600', marginBottom: 8 },
-  etiquetaCampo: { color: '#777', fontSize: 13, marginTop: 8 },
-  campo: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 10 },
-  accionesModal: { flexDirection: 'row', gap: 8, marginTop: 16 },
-  botonCancelar: {
-    flex: 1, borderRadius: 8, padding: 14, alignItems: 'center',
-    borderWidth: 1, borderColor: '#ddd',
-  },
-  botonAgregar: {
-    flex: 1, backgroundColor: '#111', borderRadius: 8, padding: 14, alignItems: 'center',
-  },
-  botonAgregarTexto: { color: '#fff' },
+  tituloModal: { marginBottom: ESPACIO.s },
+  etiquetaCampo: { marginTop: ESPACIO.s },
+  accionesModal: { flexDirection: 'row', gap: ESPACIO.s, marginTop: ESPACIO.l },
 })

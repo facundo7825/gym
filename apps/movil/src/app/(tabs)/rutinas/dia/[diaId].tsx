@@ -1,10 +1,13 @@
 import { useCallback, useState } from 'react'
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native'
+import { ActivityIndicator, Alert, Pressable, StyleSheet, View } from 'react-native'
+import Ionicons from '@expo/vector-icons/Ionicons'
 import { Link, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router'
 import ReorderableList, {
   reorderItems, useReorderableDrag, type ReorderableListReorderEvent,
 } from 'react-native-reorderable-list'
+import { COLORES, ESPACIO } from '@gym/core'
 import { supabase } from '@/lib/supabase'
+import { Boton, Fondo, Tarjeta, Texto } from '@/ui'
 
 interface EjercicioEnDia {
   id: string
@@ -101,38 +104,44 @@ export default function PantallaDia() {
   }
 
   if (cargando) {
-    return <View style={estilos.centrado}><ActivityIndicator /></View>
+    return <Fondo><View style={estilos.centrado}><ActivityIndicator color={COLORES.cian} /></View></Fondo>
   }
   if (error || nombreDia === null) {
     return (
-      <View style={estilos.centrado}>
-        <Text style={estilos.error}>{error ?? 'No encontramos este día'}</Text>
-      </View>
+      <Fondo>
+        <View style={estilos.centrado}>
+          <Texto tono="rechazo">{error ?? 'No encontramos este día'}</Texto>
+        </View>
+      </Fondo>
     )
   }
 
   return (
-    <View style={{ flex: 1 }}>
+    <Fondo>
       <Stack.Screen options={{ title: nombreDia }} />
 
       <ReorderableList
         data={ejercicios}
         keyExtractor={(e) => e.id}
         onReorder={reordenar}
+        contentContainerStyle={estilos.lista}
         renderItem={({ item }) => (
           <FilaEjercicio ejercicio={item} onBorrar={() => borrar(item)} />
         )}
         ListEmptyComponent={
-          <Text style={estilos.vacio}>Todavía no agregaste ejercicios.</Text>
+          <Texto tono="secundario" style={estilos.vacio}>Todavía no agregaste ejercicios.</Texto>
         }
       />
 
       <Link href={{ pathname: '/(tabs)/rutinas/elegir-ejercicio', params: { diaId } }} asChild>
-        <Pressable style={estilos.botonAgregar}>
-          <Text style={estilos.botonAgregarTexto}>+ Agregar ejercicio</Text>
+        <Pressable style={estilos.botonAgregar} accessibilityRole="button">
+          {/* El toque lo recibe el Link; el Boton es solo la cara. */}
+          <View pointerEvents="none">
+            <Boton titulo="+ Agregar ejercicio" onPress={() => {}} />
+          </View>
         </Pressable>
       </Link>
-    </View>
+    </Fondo>
   )
 }
 
@@ -144,50 +153,41 @@ function FilaEjercicio({ ejercicio, onBorrar }: {
   const drag = useReorderableDrag()
 
   return (
-    <View style={estilos.fila}>
-      <Pressable onLongPress={drag} hitSlop={8} style={estilos.agarre}>
-        <Text style={estilos.agarreTexto}>☰</Text>
-      </Pressable>
-      <View style={{ flex: 1 }}>
-        <Text style={estilos.nombre}>{ejercicio.ejercicios?.nombre}</Text>
-        <Text style={estilos.sub}>
-          {ejercicio.series}×{ejercicio.repeticiones}
-          {ejercicio.descanso_seg ? ` · ${ejercicio.descanso_seg}s de descanso` : ''}
-        </Text>
-      </View>
-      {ejercicio.ejercicios?.video_id && (
-        <Link href={`/(tabs)/ejercicios/${ejercicio.ejercicios.id}`} asChild>
-          <Pressable hitSlop={8}>
-            <Text style={estilos.video}>▶</Text>
-          </Pressable>
-        </Link>
-      )}
-      <Pressable onPress={onBorrar} hitSlop={8}>
-        <Text style={estilos.borrar}>✕</Text>
-      </Pressable>
+    <View style={estilos.separacion}>
+      <Tarjeta style={estilos.fila}>
+        <Pressable onLongPress={drag} hitSlop={8} style={estilos.agarre}>
+          <Ionicons name="reorder-three" size={22} color={COLORES.textoTenue} />
+        </Pressable>
+        <View style={{ flex: 1 }}>
+          <Texto peso="semi">{ejercicio.ejercicios?.nombre}</Texto>
+          <Texto variante="chico" tono="secundario" numerico>
+            {ejercicio.series}×{ejercicio.repeticiones}
+            {ejercicio.descanso_seg ? ` · ${ejercicio.descanso_seg}s de descanso` : ''}
+          </Texto>
+        </View>
+        {ejercicio.ejercicios?.video_id && (
+          <Link href={`/(tabs)/ejercicios/${ejercicio.ejercicios.id}`} asChild>
+            <Pressable hitSlop={10}>
+              <Ionicons name="play-circle" size={26} color={COLORES.cian} />
+            </Pressable>
+          </Link>
+        )}
+        <Pressable onPress={onBorrar} hitSlop={12}>
+          <Ionicons name="trash-outline" size={22} color={COLORES.rechazo} />
+        </Pressable>
+      </Tarjeta>
     </View>
   )
 }
 
 const estilos = StyleSheet.create({
   centrado: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  error: { color: '#b00' },
-  fila: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingHorizontal: 16, paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#ddd',
-    backgroundColor: '#fff',
-  },
-  agarre: { padding: 4 },
-  agarreTexto: { color: '#aaa', fontSize: 18 },
-  nombre: { fontSize: 16 },
-  sub: { color: '#777', fontSize: 13, marginTop: 2 },
-  video: { fontSize: 18 },
-  borrar: { color: '#b00', fontSize: 16, paddingHorizontal: 4 },
-  vacio: { textAlign: 'center', color: '#777', marginTop: 32, paddingHorizontal: 24 },
-  botonAgregar: {
-    backgroundColor: '#111', margin: 16, borderRadius: 8,
-    padding: 14, alignItems: 'center',
-  },
-  botonAgregarTexto: { color: '#fff' },
+  lista: { padding: ESPACIO.l },
+  // La separación va dentro del ítem y no como gap de la lista: el reordenable
+  // mide cada ítem, y así el espacio viaja con él al arrastrarlo.
+  separacion: { paddingBottom: ESPACIO.s },
+  fila: { flexDirection: 'row', alignItems: 'center', gap: ESPACIO.m },
+  agarre: { padding: ESPACIO.xs },
+  vacio: { textAlign: 'center', marginTop: ESPACIO.xl, paddingHorizontal: ESPACIO.xl },
+  botonAgregar: { margin: ESPACIO.l },
 })

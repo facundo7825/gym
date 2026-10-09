@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-  ActivityIndicator, FlatList, Pressable, ScrollView,
-  StyleSheet, Text, TextInput, View,
+  ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, View,
 } from 'react-native'
+import Ionicons from '@expo/vector-icons/Ionicons'
 import {
-  EQUIPAMIENTOS, GRUPOS_MUSCULARES, etiqueta, filtrarEjercicios,
+  COLORES, EQUIPAMIENTOS, ESPACIO, GRUPOS_MUSCULARES, etiqueta, filtrarEjercicios,
   type Equipamiento, type GrupoMuscular,
 } from '@gym/core'
 import { supabase } from '@/lib/supabase'
+import { Campo, Chip, Tarjeta, Texto } from '@/ui'
 
 export interface EjercicioDelCatalogo {
   id: string
@@ -57,7 +58,7 @@ export function BuscadorEjercicios({ onElegir }: {
   if (cargando) {
     return (
       <View style={estilos.centrado}>
-        <ActivityIndicator />
+        <ActivityIndicator color={COLORES.cian} />
       </View>
     )
   }
@@ -65,20 +66,25 @@ export function BuscadorEjercicios({ onElegir }: {
   if (error) {
     return (
       <View style={estilos.centrado}>
-        <Text style={estilos.error}>{error}</Text>
+        <Texto tono="rechazo">{error}</Texto>
       </View>
     )
   }
 
   return (
     <View style={{ flex: 1 }}>
-      <TextInput
-        style={estilos.buscador} placeholder="Buscar ejercicio"
-        value={busqueda} onChangeText={setBusqueda}
-      />
+      <View style={estilos.cajaBuscador}>
+        <Campo
+          placeholder="Buscar ejercicio" value={busqueda} onChangeText={setBusqueda}
+          style={estilos.buscador}
+        />
+        <View style={estilos.lupa} pointerEvents="none">
+          <Ionicons name="search" size={18} color={COLORES.textoTenue} />
+        </View>
+      </View>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false}
-        style={estilos.filtros} contentContainerStyle={{ gap: 8, paddingHorizontal: 12 }}>
+        style={estilos.filtros} contentContainerStyle={estilos.contenidoFiltros}>
         <Chip activo={grupo === null} texto="Todos" onPress={() => setGrupo(null)} />
         {GRUPOS_MUSCULARES.map((g) => (
           <Chip key={g} activo={grupo === g} texto={etiqueta(g)}
@@ -87,7 +93,7 @@ export function BuscadorEjercicios({ onElegir }: {
       </ScrollView>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false}
-        style={estilos.filtros} contentContainerStyle={{ gap: 8, paddingHorizontal: 12 }}>
+        style={estilos.filtros} contentContainerStyle={estilos.contenidoFiltros}>
         <Chip activo={soloMiGym} texto="Solo lo que hay acá"
           onPress={() => setSoloMiGym((v) => !v)} />
         {EQUIPAMIENTOS.map((eq) => (
@@ -100,21 +106,24 @@ export function BuscadorEjercicios({ onElegir }: {
         data={visibles}
         keyExtractor={(x) => x.id}
         keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{ padding: ESPACIO.l, gap: ESPACIO.s }}
         ListEmptyComponent={
-          <Text style={estilos.vacio}>
+          <Texto tono="secundario" style={{ textAlign: 'center', marginTop: ESPACIO.xl }}>
             No encontramos ejercicios con esos filtros.
-          </Text>
+          </Texto>
         }
         renderItem={({ item }) => (
-          <Pressable style={estilos.fila} onPress={() => onElegir(item)}>
-            <View style={{ flex: 1 }}>
-              <Text style={estilos.nombre}>{item.nombre}</Text>
-              <Text style={estilos.sub}>
-                {etiqueta(item.grupo_muscular)}
-                {item.gym_id === null ? ' · Catálogo general' : ' · De tu gimnasio'}
-              </Text>
-            </View>
-            {item.video_id && <Text>▶</Text>}
+          <Pressable onPress={() => onElegir(item)}>
+            <Tarjeta style={estilos.fila}>
+              <View style={{ flex: 1 }}>
+                <Texto peso="semi">{item.nombre}</Texto>
+                <Texto variante="chico" tono="secundario">
+                  {etiqueta(item.grupo_muscular)}
+                  {item.gym_id === null ? ' · Catálogo general' : ' · De tu gimnasio'}
+                </Texto>
+              </View>
+              {item.video_id && <Ionicons name="play-circle" size={26} color={COLORES.cian} />}
+            </Tarjeta>
           </Pressable>
         )}
       />
@@ -122,36 +131,12 @@ export function BuscadorEjercicios({ onElegir }: {
   )
 }
 
-function Chip({ activo, texto, onPress }: {
-  activo: boolean; texto: string; onPress: () => void
-}) {
-  return (
-    <Pressable onPress={onPress} style={[estilos.chip, activo && estilos.chipActivo]}>
-      <Text style={activo ? estilos.chipTextoActivo : estilos.chipTexto}>{texto}</Text>
-    </Pressable>
-  )
-}
-
 const estilos = StyleSheet.create({
   centrado: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  error: { color: '#b00' },
-  buscador: {
-    margin: 12, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 10,
-  },
-  filtros: { flexGrow: 0, marginBottom: 8 },
-  chip: {
-    paddingHorizontal: 12, paddingVertical: 6,
-    borderRadius: 16, backgroundColor: '#eee',
-  },
-  chipActivo: { backgroundColor: '#111' },
-  chipTexto: { color: '#333' },
-  chipTextoActivo: { color: '#fff' },
-  fila: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingHorizontal: 16, paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#ddd',
-  },
-  nombre: { fontSize: 16 },
-  sub: { color: '#777', fontSize: 13, marginTop: 2 },
-  vacio: { textAlign: 'center', color: '#777', marginTop: 32 },
+  cajaBuscador: { margin: ESPACIO.l, marginBottom: ESPACIO.s, justifyContent: 'center' },
+  buscador: { paddingRight: ESPACIO.xl + ESPACIO.l },
+  lupa: { position: 'absolute', right: ESPACIO.l },
+  filtros: { flexGrow: 0 },
+  contenidoFiltros: { gap: ESPACIO.s, paddingHorizontal: ESPACIO.l, paddingVertical: ESPACIO.xs },
+  fila: { flexDirection: 'row', alignItems: 'center', gap: ESPACIO.m },
 })

@@ -1,12 +1,13 @@
 import { useCallback, useState } from 'react'
 import {
   ActivityIndicator, FlatList, Pressable,
-  StyleSheet, Text, View,
+  StyleSheet, View,
 } from 'react-native'
 import { Link, Stack, useFocusEffect, useRouter } from 'expo-router'
-import { etiqueta, type NivelRutina, type ObjetivoRutina } from '@gym/core'
+import { COLORES, ESPACIO, TOQUE_MINIMO, etiqueta, type NivelRutina, type ObjetivoRutina } from '@gym/core'
 import { supabase } from '@/lib/supabase'
 import { tomarRutina } from '@/lib/tomar-rutina'
+import { Boton, Chip, Fondo, Tarjeta, Texto } from '@/ui'
 
 interface Rutina {
   id: string
@@ -71,10 +72,10 @@ export default function Rutinas() {
   }
 
   if (cargando) {
-    return <View style={estilos.centrado}><ActivityIndicator /></View>
+    return <Fondo><View style={estilos.centrado}><ActivityIndicator color={COLORES.cian} /></View></Fondo>
   }
   if (error) {
-    return <View style={estilos.centrado}><Text style={estilos.error}>{error}</Text></View>
+    return <Fondo><View style={estilos.centrado}><Texto tono="rechazo">{error}</Texto></View></Fondo>
   }
 
   const visibles = solapa === 'mias'
@@ -82,22 +83,22 @@ export default function Rutinas() {
     : catalogo
 
   return (
-    <View style={{ flex: 1 }}>
+    <Fondo>
       <Stack.Screen options={{ title: 'Rutinas' }} />
 
       <View style={estilos.solapas}>
-        <Solapa activa={solapa === 'mias'} texto="Mis rutinas"
+        <Chip activo={solapa === 'mias'} texto="Mis rutinas"
           onPress={() => setSolapa('mias')} />
-        <Solapa activa={solapa === 'catalogo'} texto="Catálogo del gym"
+        <Chip activo={solapa === 'catalogo'} texto="Catálogo del gym"
           onPress={() => setSolapa('catalogo')} />
       </View>
 
       {solapa === 'mias' && (
         <View style={estilos.filtro}>
           <Pressable onPress={() => setArchivadas((v) => !v)} hitSlop={8}>
-            <Text style={estilos.filtroTexto}>
+            <Texto variante="chico" peso="semi" tono="cian">
               {archivadas ? '‹ Ver las activas' : 'Ver las archivadas ›'}
-            </Text>
+            </Texto>
           </Pressable>
         </View>
       )}
@@ -105,76 +106,52 @@ export default function Rutinas() {
       <FlatList
         data={visibles}
         keyExtractor={(x) => x.id}
+        contentContainerStyle={estilos.lista}
         ListEmptyComponent={
-          <Text style={estilos.vacio}>
+          <Texto tono="secundario" style={estilos.vacio}>
             {solapa === 'catalogo'
               ? 'Tu gimnasio todavía no cargó rutinas.'
               : archivadas
                 ? 'No tenés rutinas archivadas.'
                 : 'Todavía no tenés rutinas. Tomá una del catálogo o armate una.'}
-          </Text>
+          </Texto>
         }
         renderItem={({ item }) => (
-          <View style={estilos.fila}>
+          <Tarjeta style={estilos.fila}>
             <Link href={`/(tabs)/rutinas/${item.id}`} asChild>
               <Pressable style={{ flex: 1 }}>
-                <Text style={estilos.nombre}>{item.nombre}</Text>
-                <Text style={estilos.sub}>
+                <Texto peso="semi">{item.nombre}</Texto>
+                <Texto variante="chico" tono="secundario">
                   {etiqueta(item.objetivo)} · {etiqueta(item.nivel)} · {item.rutina_dias.length} días
                   {item.asignada_por ? ' · Te la asignó tu entrenador' : ''}
-                </Text>
+                </Texto>
               </Pressable>
             </Link>
             {solapa === 'catalogo' && (
-              <Pressable style={estilos.boton} onPress={() => tomar(item.id, item.gym_id)}>
-                <Text style={estilos.botonTexto}>Tomar</Text>
-              </Pressable>
+              <Boton variante="secundario" titulo="Tomar" onPress={() => tomar(item.id, item.gym_id)} />
             )}
-          </View>
+          </Tarjeta>
         )}
       />
 
       <Link href="/(tabs)/rutinas/nueva" asChild>
-        <Pressable style={estilos.flotante}>
-          <Text style={estilos.botonTexto}>+ Crear rutina</Text>
+        <Pressable style={estilos.flotante} accessibilityRole="button">
+          {/* El toque lo recibe el Link; el Boton es solo la cara. */}
+          <View pointerEvents="none">
+            <Boton titulo="+ Crear rutina" onPress={() => {}} />
+          </View>
         </Pressable>
       </Link>
-    </View>
-  )
-}
-
-function Solapa({ activa, texto, onPress }: {
-  activa: boolean; texto: string; onPress: () => void
-}) {
-  return (
-    <Pressable onPress={onPress} style={[estilos.solapa, activa && estilos.solapaActiva]}>
-      <Text style={activa ? estilos.solapaTextoActivo : estilos.solapaTexto}>{texto}</Text>
-    </Pressable>
+    </Fondo>
   )
 }
 
 const estilos = StyleSheet.create({
   centrado: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  error: { color: '#b00' },
-  solapas: { flexDirection: 'row', gap: 8, padding: 12 },
-  solapa: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: '#eee' },
-  solapaActiva: { backgroundColor: '#111' },
-  solapaTexto: { color: '#333' },
-  solapaTextoActivo: { color: '#fff' },
-  filtro: { paddingHorizontal: 16, paddingBottom: 8 },
-  filtroTexto: { color: '#555', fontSize: 13 },
-  fila: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingHorizontal: 16, paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#ddd',
-  },
-  nombre: { fontSize: 16 },
-  sub: { color: '#777', fontSize: 13, marginTop: 2 },
-  boton: { backgroundColor: '#111', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 },
-  botonTexto: { color: '#fff' },
-  vacio: { textAlign: 'center', color: '#777', marginTop: 32, paddingHorizontal: 24 },
-  flotante: {
-    position: 'absolute', right: 16, bottom: 24,
-    backgroundColor: '#111', borderRadius: 24, paddingHorizontal: 20, paddingVertical: 14,
-  },
+  solapas: { flexDirection: 'row', gap: ESPACIO.s, padding: ESPACIO.m },
+  filtro: { paddingHorizontal: ESPACIO.l, paddingBottom: ESPACIO.s },
+  lista: { padding: ESPACIO.l, gap: ESPACIO.s, paddingBottom: TOQUE_MINIMO * 2 },
+  fila: { flexDirection: 'row', alignItems: 'center', gap: ESPACIO.m },
+  vacio: { textAlign: 'center', marginTop: ESPACIO.xl, paddingHorizontal: ESPACIO.xl },
+  flotante: { position: 'absolute', right: ESPACIO.l, bottom: ESPACIO.xl },
 })

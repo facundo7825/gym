@@ -1,14 +1,17 @@
 import { useCallback, useState } from 'react'
 import {
   ActivityIndicator, Alert, Pressable, ScrollView,
-  StyleSheet, Text, TextInput, View,
+  StyleSheet, View,
 } from 'react-native'
+import Ionicons from '@expo/vector-icons/Ionicons'
 import { Link, Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
 import ReorderableList, {
   reorderItems, useReorderableDrag, type ReorderableListReorderEvent,
 } from 'react-native-reorderable-list'
+import { COLORES, ESPACIO } from '@gym/core'
 import { supabase } from '@/lib/supabase'
 import { tomarRutina } from '@/lib/tomar-rutina'
+import { Boton, Campo, Fondo, Tarjeta, Texto } from '@/ui'
 
 interface EjercicioEnDia {
   id: string
@@ -182,13 +185,15 @@ export default function PantallaRutina() {
   }
 
   if (cargando) {
-    return <View style={estilos.centrado}><ActivityIndicator /></View>
+    return <Fondo><View style={estilos.centrado}><ActivityIndicator color={COLORES.cian} /></View></Fondo>
   }
   if (error || rutina === null) {
     return (
-      <View style={estilos.centrado}>
-        <Text style={estilos.error}>{error ?? 'No encontramos esta rutina'}</Text>
-      </View>
+      <Fondo>
+        <View style={estilos.centrado}>
+          <Texto tono="rechazo">{error ?? 'No encontramos esta rutina'}</Texto>
+        </View>
+      </Fondo>
     )
   }
 
@@ -197,80 +202,76 @@ export default function PantallaRutina() {
   // botones que fallan siempre. Lo que sí puede hacer es tomarla.
   if (rutina.tipo === 'plantilla') {
     return (
-      <View style={{ flex: 1 }}>
+      <Fondo>
         <Stack.Screen options={{ title: rutina.nombre }} />
 
         <ScrollView contentContainerStyle={estilos.lectura}>
           {dias.length === 0 && (
-            <Text style={estilos.vacio}>Esta rutina todavía no tiene días.</Text>
+            <Texto tono="secundario" style={estilos.vacio}>Esta rutina todavía no tiene días.</Texto>
           )}
           {dias.map((dia) => (
             <View key={dia.id} style={estilos.bloqueDia}>
-              <Text style={estilos.tituloDia}>{dia.nombre}</Text>
+              <Texto peso="semi">{dia.nombre}</Texto>
               {[...dia.rutina_ejercicios]
                 .sort((a, b) => a.orden - b.orden)
                 .map((ej) => (
-                  <View key={ej.id} style={estilos.filaLectura}>
+                  <Tarjeta key={ej.id} style={estilos.filaLectura}>
                     <View style={{ flex: 1 }}>
-                      <Text style={estilos.nombre}>{ej.ejercicios?.nombre}</Text>
-                      <Text style={estilos.sub}>
+                      <Texto peso="semi">{ej.ejercicios?.nombre}</Texto>
+                      <Texto variante="chico" tono="secundario" numerico>
                         {ej.series}×{ej.repeticiones}
                         {ej.descanso_seg ? ` · ${ej.descanso_seg}s de descanso` : ''}
-                      </Text>
+                      </Texto>
                     </View>
                     {ej.ejercicios?.video_id && (
                       <Link href={`/(tabs)/ejercicios/${ej.ejercicios.id}`} asChild>
-                        <Pressable hitSlop={8}>
-                          <Text style={estilos.video}>▶</Text>
+                        <Pressable hitSlop={10}>
+                          <Ionicons name="play-circle" size={26} color={COLORES.cian} />
                         </Pressable>
                       </Link>
                     )}
-                  </View>
+                  </Tarjeta>
                 ))}
               {dia.rutina_ejercicios.length === 0 && (
-                <Text style={estilos.sub}>Sin ejercicios.</Text>
+                <Texto variante="chico" tono="secundario">Sin ejercicios.</Texto>
               )}
             </View>
           ))}
         </ScrollView>
 
-        <Pressable style={estilos.botonTomar} onPress={tomar} disabled={tomando}>
-          <Text style={estilos.botonTomarTexto}>
-            {tomando ? 'Agregando…' : 'Tomar esta rutina'}
-          </Text>
-        </Pressable>
-      </View>
+        <Boton
+          titulo={tomando ? 'Agregando…' : 'Tomar esta rutina'}
+          onPress={tomar} deshabilitado={tomando} style={estilos.botonTomar}
+        />
+      </Fondo>
     )
   }
 
   return (
-    <View style={{ flex: 1 }}>
+    <Fondo>
       <Stack.Screen options={{ title: rutina.nombre }} />
 
       <ReorderableList
         data={dias}
         keyExtractor={(d) => d.id}
         onReorder={reordenar}
+        contentContainerStyle={estilos.lista}
         renderItem={({ item }) => <FilaDia dia={item} onBorrar={() => borrarDia(item)} />}
         ListEmptyComponent={
-          <Text style={estilos.vacio}>Todavía no agregaste días.</Text>
+          <Texto tono="secundario" style={estilos.vacio}>Todavía no agregaste días.</Texto>
         }
       />
 
       <View style={estilos.alta}>
-        <TextInput
-          style={estilos.campo} placeholder="Día 4 — Hombros"
+        <Campo
+          style={{ flex: 1 }} placeholder="Día 4 — Hombros"
           value={nombreNuevo} onChangeText={setNombreNuevo}
         />
-        <Pressable style={estilos.botonAgregar} onPress={agregarDia} disabled={agregando}>
-          <Text style={estilos.botonAgregarTexto}>{agregando ? '…' : '+'}</Text>
-        </Pressable>
+        <Boton titulo={agregando ? '…' : '+'} onPress={agregarDia} deshabilitado={agregando} />
       </View>
 
-      <Pressable style={estilos.botonArchivar} onPress={archivar}>
-        <Text style={estilos.botonArchivarTexto}>Archivar rutina</Text>
-      </Pressable>
-    </View>
+      <Boton variante="peligro" titulo="Archivar rutina" onPress={archivar} style={estilos.botonArchivar} />
+    </Fondo>
   )
 }
 
@@ -280,61 +281,37 @@ function FilaDia({ dia, onBorrar }: { dia: Dia; onBorrar: () => void }) {
   const drag = useReorderableDrag()
 
   return (
-    <View style={estilos.fila}>
-      <Pressable onLongPress={drag} hitSlop={8} style={estilos.agarre}>
-        <Text style={estilos.agarreTexto}>☰</Text>
-      </Pressable>
-      <Link href={`/(tabs)/rutinas/dia/${dia.id}`} asChild>
-        <Pressable style={{ flex: 1 }}>
-          <Text style={estilos.nombre}>{dia.nombre}</Text>
+    <View style={estilos.separacion}>
+      <Tarjeta style={estilos.fila}>
+        <Pressable onLongPress={drag} hitSlop={8} style={estilos.agarre}>
+          <Ionicons name="reorder-three" size={22} color={COLORES.textoTenue} />
         </Pressable>
-      </Link>
-      <Pressable onPress={onBorrar} hitSlop={8}>
-        <Text style={estilos.borrar}>✕</Text>
-      </Pressable>
+        <Link href={`/(tabs)/rutinas/dia/${dia.id}`} asChild>
+          <Pressable style={{ flex: 1 }}>
+            <Texto peso="semi">{dia.nombre}</Texto>
+          </Pressable>
+        </Link>
+        <Pressable onPress={onBorrar} hitSlop={12}>
+          <Ionicons name="trash-outline" size={22} color={COLORES.rechazo} />
+        </Pressable>
+      </Tarjeta>
     </View>
   )
 }
 
 const estilos = StyleSheet.create({
   centrado: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  error: { color: '#b00' },
-  fila: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingHorizontal: 16, paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#ddd',
-    backgroundColor: '#fff',
-  },
-  agarre: { padding: 4 },
-  agarreTexto: { color: '#aaa', fontSize: 18 },
-  borrar: { color: '#b00', fontSize: 16, paddingHorizontal: 4 },
-  nombre: { fontSize: 16 },
-  sub: { color: '#777', fontSize: 13, marginTop: 2 },
-  video: { fontSize: 18 },
-  vacio: { textAlign: 'center', color: '#777', marginTop: 32, paddingHorizontal: 24 },
-  lectura: { paddingBottom: 24 },
-  bloqueDia: { paddingTop: 16 },
-  tituloDia: { fontSize: 15, fontWeight: '600', paddingHorizontal: 16, paddingBottom: 6 },
-  filaLectura: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingHorizontal: 16, paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#ddd',
-  },
-  alta: { flexDirection: 'row', gap: 8, padding: 12 },
-  campo: {
-    flex: 1, borderWidth: 1, borderColor: '#ddd',
-    borderRadius: 8, padding: 12,
-  },
-  botonAgregar: {
-    backgroundColor: '#111', borderRadius: 8,
-    paddingHorizontal: 18, justifyContent: 'center',
-  },
-  botonAgregarTexto: { color: '#fff', fontSize: 18 },
-  botonArchivar: { alignItems: 'center', padding: 14 },
-  botonArchivarTexto: { color: '#b00' },
-  botonTomar: {
-    backgroundColor: '#111', margin: 16, borderRadius: 8,
-    padding: 14, alignItems: 'center',
-  },
-  botonTomarTexto: { color: '#fff' },
+  lista: { padding: ESPACIO.l },
+  // La separación va dentro del ítem y no como gap de la lista: el reordenable
+  // mide cada ítem, y así el espacio viaja con él al arrastrarlo.
+  separacion: { paddingBottom: ESPACIO.s },
+  fila: { flexDirection: 'row', alignItems: 'center', gap: ESPACIO.m },
+  agarre: { padding: ESPACIO.xs },
+  vacio: { textAlign: 'center', marginTop: ESPACIO.xl, paddingHorizontal: ESPACIO.xl },
+  lectura: { padding: ESPACIO.l, gap: ESPACIO.s },
+  bloqueDia: { paddingTop: ESPACIO.s, gap: ESPACIO.s },
+  filaLectura: { flexDirection: 'row', alignItems: 'center', gap: ESPACIO.m },
+  alta: { flexDirection: 'row', gap: ESPACIO.s, paddingHorizontal: ESPACIO.l, paddingVertical: ESPACIO.m },
+  botonArchivar: { marginHorizontal: ESPACIO.l, marginBottom: ESPACIO.l },
+  botonTomar: { margin: ESPACIO.l },
 })

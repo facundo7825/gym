@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native'
 import { Stack, useLocalSearchParams } from 'expo-router'
 import { useEventListener } from 'expo'
 import { useVideoPlayer, VideoView } from 'expo-video'
 import { FunctionsHttpError } from '@supabase/supabase-js'
-import { etiqueta, type Equipamiento, type GrupoMuscular } from '@gym/core'
+import { COLORES, ESPACIO, RADIOS, etiqueta, type Equipamiento, type GrupoMuscular } from '@gym/core'
 import { supabase } from '@/lib/supabase'
+import { Fondo, Texto } from '@/ui'
 
 interface Ejercicio {
   nombre: string
@@ -105,18 +106,21 @@ export default function DetalleEjercicio() {
   })
 
   if (cargando) {
-    return <View style={estilos.centrado}><ActivityIndicator /></View>
+    return <Fondo><View style={estilos.centrado}><ActivityIndicator color={COLORES.cian} /></View></Fondo>
   }
 
   if (!ejercicio) {
     return (
-      <View style={estilos.centrado}>
-        <Text style={estilos.gris}>No encontramos este ejercicio.</Text>
-      </View>
+      <Fondo>
+        <View style={estilos.centrado}>
+          <Texto tono="secundario">No encontramos este ejercicio.</Texto>
+        </View>
+      </Fondo>
     )
   }
 
   return (
+    <Fondo>
     <ScrollView contentContainerStyle={estilos.contenido}>
       <Stack.Screen options={{ title: ejercicio.nombre }} />
 
@@ -132,39 +136,38 @@ export default function DetalleEjercicio() {
               nativeControls
             />
           ) : (
-            <Text style={estilos.gris}>
+            <Texto tono="secundario">
               {errorVideo ?? 'Cargando video…'}
-            </Text>
+            </Texto>
           )}
         </View>
       )}
 
-      <Text style={estilos.titulo}>{ejercicio.nombre}</Text>
-      <Text style={estilos.gris}>
+      <Texto variante="subtitulo">{ejercicio.nombre}</Texto>
+      <Texto tono="secundario">
         {etiqueta(ejercicio.grupo_muscular)} · {etiqueta(ejercicio.equipamiento)}
-      </Text>
+      </Texto>
 
-      {ejercicio.descripcion && <Text style={estilos.parrafo}>{ejercicio.descripcion}</Text>}
+      {ejercicio.descripcion && <Texto style={estilos.parrafo}>{ejercicio.descripcion}</Texto>}
 
       {ejercicio.instrucciones && (
         <>
-          <Text style={estilos.subtitulo}>Cómo se hace</Text>
-          <Text style={estilos.parrafo}>{ejercicio.instrucciones}</Text>
+          <Texto variante="grande" style={estilos.subtitulo}>Cómo se hace</Texto>
+          <Texto style={estilos.parrafo}>{ejercicio.instrucciones}</Texto>
         </>
       )}
     </ScrollView>
+    </Fondo>
   )
 }
 
 const estilos = StyleSheet.create({
   centrado: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  contenido: { padding: 20, gap: 8 },
-  titulo: { fontSize: 24, fontWeight: '600' },
-  subtitulo: { fontSize: 16, fontWeight: '600', marginTop: 12 },
-  parrafo: { fontSize: 15, lineHeight: 22 },
-  gris: { color: '#777' },
+  contenido: { padding: ESPACIO.l, gap: ESPACIO.s },
+  subtitulo: { marginTop: ESPACIO.m },
+  parrafo: { lineHeight: 22 },
   video: {
-    aspectRatio: 16 / 9, borderRadius: 12, backgroundColor: '#eee',
+    aspectRatio: 16 / 9, borderRadius: RADIOS.medio, backgroundColor: COLORES.hundido,
     alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
   },
   reproductor: { width: '100%', height: '100%' },
