@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ClipboardList, Dumbbell, House, ScanLine, Users, Wrench, type LucideIcon } from 'lucide-react'
+import { CalendarCheck, ClipboardList, Dumbbell, House, ScanLine, Users, Wrench, type LucideIcon } from 'lucide-react'
 
 // primeroEnCelular: en la barra de arriba del celular va antes que el resto,
 // sin cambiar el orden de la barra lateral de la computadora.
@@ -10,6 +10,7 @@ const SECCIONES: { href: string; texto: string; icono: LucideIcon; primeroEnCelu
   { href: '/', texto: 'Inicio', icono: House },
   { href: '/socios', texto: 'Socios', icono: Users },
   { href: '/escanear', texto: 'Escanear', icono: ScanLine, primeroEnCelular: true },
+  { href: '/asistencia', texto: 'Asistencia', icono: CalendarCheck },
   { href: '/rutinas', texto: 'Rutinas', icono: ClipboardList },
   { href: '/ejercicios', texto: 'Ejercicios', icono: Dumbbell },
   { href: '/maquinas', texto: 'Máquinas', icono: Wrench },
