@@ -1,7 +1,7 @@
 # Diseño — Rediseño visual de la app y el panel
 
 **Fecha:** 2026-10-09
-**Estado:** Aprobado en conversación.
+**Estado:** Implementado. Plan: [`2026-10-09-rediseno-visual.md`](../plans/2026-10-09-rediseno-visual.md).
 **Parte de:** la etapa 3 terminada (rama `etapa-3`). No agrega funciones: cambia cómo se ven y se usan las pantallas que ya existen.
 
 ---

@@ -26,13 +26,13 @@ export function AccionesPlantilla({ id }: { id: string }) {
 
   return (
     <span className="flex items-center gap-2 text-sm">
-      {error && <span className="text-red-600">{error}</span>}
+      {error && <span className="text-rechazo">{error}</span>}
       <button onClick={correr(duplicar)} disabled={pendiente}
-        className="rounded border px-2 py-1 disabled:opacity-50">
+        className="boton boton-secundario">
         Duplicar
       </button>
       <button onClick={alArchivar} disabled={pendiente}
-        className="rounded border px-2 py-1 disabled:opacity-50">
+        className="boton boton-peligro">
         Archivar
       </button>
     </span>

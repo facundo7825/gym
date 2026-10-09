@@ -10,25 +10,25 @@ export function FormularioPlantilla() {
   const [estado, accion, enviando] = useActionState(crearPlantilla, INICIAL)
 
   return (
-    <form action={accion} className="space-y-3 rounded border p-4">
+    <form action={accion} className="tarjeta space-y-3">
       <h2 className="font-semibold">Nueva plantilla</h2>
 
       <input name="nombre" placeholder="Nombre" required
-        className="w-full rounded border px-3 py-2" />
+        className="campo" />
 
       <input name="descripcion" placeholder="Descripción (opcional)"
-        className="w-full rounded border px-3 py-2" />
+        className="campo" />
 
       <div className="flex gap-3">
         <select name="objetivo" defaultValue="general"
-          className="rounded border px-3 py-2">
+          className="campo w-auto">
           {OBJETIVOS_RUTINA.map((valor) => (
             <option key={valor} value={valor}>{etiqueta(valor)}</option>
           ))}
         </select>
 
         <select name="nivel" defaultValue="principiante"
-          className="rounded border px-3 py-2">
+          className="campo w-auto">
           {NIVELES_RUTINA.map((valor) => (
             <option key={valor} value={valor}>{etiqueta(valor)}</option>
           ))}
@@ -36,11 +36,11 @@ export function FormularioPlantilla() {
       </div>
 
       {estado.error && (
-        <p role="alert" className="text-red-600">{estado.error}</p>
+        <p role="alert" className="text-rechazo">{estado.error}</p>
       )}
 
       <button type="submit" disabled={enviando}
-        className="rounded bg-black px-4 py-2 text-white disabled:opacity-50">
+        className="boton boton-principal">
         {enviando ? 'Guardando…' : 'Crear'}
       </button>
     </form>

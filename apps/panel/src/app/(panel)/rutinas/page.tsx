@@ -16,22 +16,22 @@ export default async function Rutinas() {
     .order('nombre')
 
   return (
-    <div className="space-y-8">
-      <h1 className="text-2xl font-semibold">Rutinas</h1>
+    <div className="space-y-6">
+      <h1 className="titulo-pagina">Rutinas</h1>
 
       <FormularioPlantilla />
 
       <section>
-        <h2 className="mb-2 font-semibold">
+        <h2 className="etiqueta mb-2">
           Plantillas del gimnasio ({plantillas?.length ?? 0})
         </h2>
         {plantillas?.length ? (
-          <ul className="divide-y rounded border">
+          <ul className="space-y-2">
             {plantillas.map((r) => (
-              <li key={r.id} className="flex items-center gap-3 px-4 py-3">
-                <Link href={`/rutinas/${r.id}`} className="flex-1 hover:underline">
+              <li key={r.id} className="tarjeta flex items-center gap-3">
+                <Link href={`/rutinas/${r.id}`} className="flex-1 hover:text-cian">
                   {r.nombre}
-                  <span className="text-gray-500">
+                  <span className="text-texto-secundario">
                     {' · '}{r.rutina_dias.length} días
                   </span>
                 </Link>
@@ -40,7 +40,7 @@ export default async function Rutinas() {
             ))}
           </ul>
         ) : (
-          <p className="text-gray-600">Todavía no creaste ninguna plantilla.</p>
+          <p className="text-texto-secundario">Todavía no creaste ninguna plantilla.</p>
         )}
       </section>
     </div>

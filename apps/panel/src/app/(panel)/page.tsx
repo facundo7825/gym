@@ -1,3 +1,3 @@
 export default function Inicio() {
-  return <h1 className="text-2xl font-semibold">Inicio</h1>
+  return <h1 className="titulo-pagina">Inicio</h1>
 }

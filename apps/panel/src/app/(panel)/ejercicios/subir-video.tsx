@@ -125,18 +125,18 @@ export function SubirVideo({
   return (
     <div className="mt-1 text-sm">
       {fase.nombre === 'subiendo' ? (
-        <span className="text-gray-600">Subiendo…</span>
+        <span className="text-texto-secundario">Subiendo…</span>
       ) : fase.nombre === 'leyendo' ? (
-        <span className="text-gray-600">Leyendo el archivo…</span>
+        <span className="text-texto-secundario">Leyendo el archivo…</span>
       ) : (
-        <label className="cursor-pointer text-blue-700 underline">
+        <label className="cursor-pointer enlace">
           {tieneVideo || fase.nombre === 'listo' ? 'Reemplazar video' : 'Subir video'}
           <input type="file" accept={TIPO_ACEPTADO} className="hidden" onChange={alElegir} />
         </label>
       )}
 
       {fase.nombre === 'listo' && (
-        <span className="ml-2 text-green-700">Video listo.</span>
+        <span className="ml-2 text-cian">Video listo.</span>
       )}
 
       {/* El mensaje que devuelve validarArchivoVideo ya dice qué hacer
@@ -145,7 +145,7 @@ export function SubirVideo({
           que el panel sirva, y un enlace roto justo cuando al usuario le
           rechazaron el archivo es peor que no tener enlace. */}
       {fase.nombre === 'error' && (
-        <p role="alert" className="mt-1 text-red-600">{fase.mensaje}</p>
+        <p role="alert" className="mt-1 text-rechazo">{fase.mensaje}</p>
       )}
     </div>
   )

@@ -15,13 +15,13 @@ export function Asignar({
   const [pendiente, iniciar] = useTransition()
 
   if (plantillas.length === 0) {
-    return <p className="text-sm text-gray-500">Creá una plantilla para poder asignar.</p>
+    return <p className="text-sm text-texto-secundario">Creá una plantilla para poder asignar.</p>
   }
 
   return (
     <div className="flex items-center gap-2 text-sm">
       <select value={plantillaId} onChange={(ev) => setPlantillaId(ev.target.value)}
-        className="rounded border px-2 py-1">
+        className="campo w-auto">
         {plantillas.map((p) => (
           <option key={p.id} value={p.id}>{p.nombre}</option>
         ))}
@@ -34,11 +34,11 @@ export function Asignar({
             setError(r.error ?? null)
           })
         }
-        className="rounded border px-3 py-1 disabled:opacity-50"
+        className="boton boton-secundario"
       >
         Asignar
       </button>
-      {error && <span className="text-red-600">{error}</span>}
+      {error && <span className="text-rechazo">{error}</span>}
     </div>
   )
 }
