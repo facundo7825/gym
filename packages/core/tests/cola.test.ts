@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  clasificarRespuesta, estadoFinTras, estadoTras, resumenCola, sesionAbierta,
+  clasificarRespuesta, estadoFinTras, estadoTras, reenviarComoLibre, resumenCola, sesionAbierta,
   sesionesLimpiables, siguientesOperaciones, textoEstadoCola,
   type SerieEnCola, type SesionEnCola,
 } from '../src/cola'
@@ -196,5 +196,25 @@ describe('sesionAbierta', () => {
     const terminada = sesion({ fin: '2026-10-08T11:00:00Z', estado_fin: 'pendiente' })
     const ajena = sesion({ id_local: 's2', membership_id: OTRO })
     expect(sesionAbierta([terminada, ajena], [YO])).toBeNull()
+  })
+})
+
+describe('reenviarComoLibre', () => {
+  const conDia = sesion({ rutina_dia_id: 'dia-1' })
+
+  // El día se borró mientras la sesión esperaba: el servidor la rechaza por la
+  // clave foránea, pero el historial tiene que sobrevivir sin día.
+  it('permanente con día de rutina: se reenvía como libre', () => {
+    expect(reenviarComoLibre(conDia, 'permanente')).toBe(true)
+  })
+
+  it('permanente sin día: no hay nada que soltar', () => {
+    expect(reenviarComoLibre(sesion(), 'permanente')).toBe(false)
+  })
+
+  it('transitorio, duplicado o éxito con día: no se reenvía', () => {
+    expect(reenviarComoLibre(conDia, 'transitorio')).toBe(false)
+    expect(reenviarComoLibre(conDia, 'duplicado')).toBe(false)
+    expect(reenviarComoLibre(conDia, 'exito')).toBe(false)
   })
 })

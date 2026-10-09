@@ -1,8 +1,8 @@
 import { AppState } from 'react-native'
 import * as Network from 'expo-network'
 import {
-  clasificarRespuesta, estadoFinTras, estadoTras, fusionarMarcas, resumenCola,
-  sesionesLimpiables, siguientesOperaciones, textoEstadoCola,
+  clasificarRespuesta, estadoFinTras, estadoTras, fusionarMarcas, reenviarComoLibre,
+  resumenCola, sesionesLimpiables, siguientesOperaciones, textoEstadoCola,
   type Clasificacion, type Marcas, type Operacion, type ResumenCola, type SesionEnCola,
 } from '@gym/core'
 import { supabase } from '@/lib/supabase'
@@ -94,21 +94,31 @@ async function ejecutar(op: Operacion): Promise<Clasificacion> {
 }
 
 async function enviarSesion(s: SesionEnCola): Promise<Clasificacion> {
-  const { data, error } = await supabase
+  const insertar = (rutinaDiaId: string | null) => supabase
     .from('sesiones')
     .insert({
       id_local: s.id_local,
       gym_id: s.gym_id,
       membership_id: s.membership_id,
-      rutina_dia_id: s.rutina_dia_id,
+      rutina_dia_id: rutinaDiaId,
       inicio: s.inicio,
       notas: s.notas,
     })
     .select('id')
     .single()
 
-  const c = clasificarRespuesta(error)
-  let servidorId = data?.id ?? null
+  let respuesta = await insertar(s.rutina_dia_id)
+  let c = clasificarRespuesta(respuesta.error)
+
+  // Si el día de la rutina se borró mientras la sesión esperaba, el servidor la
+  // rechaza. Borrar un día no se lleva el historial, así que se manda una vez
+  // más sin día, y la respuesta de ese segundo intento es la que vale.
+  if (reenviarComoLibre(s, c)) {
+    respuesta = await insertar(null)
+    c = clasificarRespuesta(respuesta.error)
+  }
+
+  let servidorId = respuesta.data?.id ?? null
 
   // Ya estaba —un envío anterior llegó y la respuesta se perdió—. Hace falta
   // su id para colgarle las series.

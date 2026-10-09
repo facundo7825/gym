@@ -114,6 +114,18 @@ export function clasificarRespuesta(error: { code?: string | null } | null): Cla
   return 'transitorio'
 }
 
+/**
+ * Si a una sesión rechazada hay que probarla de nuevo sin su día de rutina.
+ * Borrar un día no se lleva el historial (0011: `rutina_dia_id` es `on delete
+ * set null`) y la cola hace lo mismo: si el día se borró mientras la sesión
+ * esperaba, el servidor la rechaza por la clave foránea y sus series se
+ * perderían. Reenviada como libre se salva. Sin día no hay nada que soltar: el
+ * rechazo es por otra cosa.
+ */
+export function reenviarComoLibre(sesion: SesionEnCola, c: Clasificacion): boolean {
+  return c === 'permanente' && sesion.rutina_dia_id !== null
+}
+
 /** `null` = la fila no cambia y el intento siguiente la vuelve a llevar. */
 export function estadoTras(c: Clasificacion): EstadoEnvio | null {
   if (c === 'exito' || c === 'duplicado') return 'enviada'

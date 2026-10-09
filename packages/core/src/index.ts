@@ -30,7 +30,7 @@ export type {
 } from './registro'
 export {
   siguientesOperaciones, clasificarRespuesta, estadoTras, estadoFinTras,
-  resumenCola, textoEstadoCola, sesionesLimpiables, sesionAbierta,
+  resumenCola, textoEstadoCola, sesionesLimpiables, sesionAbierta, reenviarComoLibre,
 } from './cola'
 export type {
   EstadoEnvio, EstadoFin, SesionEnCola, SerieEnCola, Operacion, Clasificacion, ResumenCola,
