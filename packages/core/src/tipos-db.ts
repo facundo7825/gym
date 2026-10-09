@@ -779,6 +779,8 @@ export type Database = {
       }
     }
     Functions: {
+      checkin_manual: { Args: { p_membership_id: string }; Returns: Json }
+      checkin_por_qr: { Args: { p_codigo: string }; Returns: Json }
       copiar_rutina: {
         Args: { p_nueva_id: string; p_origen_id: string }
         Returns: undefined
@@ -817,6 +819,13 @@ export type Database = {
       puedo_ver_sesion_fila: {
         Args: { p_gym_id: string; p_membership_id: string }
         Returns: boolean
+      }
+      registrar_checkin: {
+        Args: {
+          p_membership_id: string
+          p_metodo: Database["public"]["Enums"]["metodo_checkin"]
+        }
+        Returns: Json
       }
       reordenar_dias: {
         Args: { p_ids: string[]; p_rutina_id: string }

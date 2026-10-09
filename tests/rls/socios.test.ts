@@ -345,6 +345,126 @@ describe('el socio no toca su membresía', () => {
   })
 })
 
+/** La fecha de hoy en una zona horaria, como 'AAAA-MM-DD'. */
+const hoyEn = (zona: string) =>
+  new Intl.DateTimeFormat('en-CA', { timeZone: zona, year: 'numeric', month: '2-digit', day: '2-digit' })
+    .format(new Date())
+
+async function codigoDe(membershipId: string): Promise<string> {
+  const { data, error } = await admin.from('memberships').select('codigo_qr').eq('id', membershipId).single()
+  if (error) throw error
+  return data.codigo_qr
+}
+
+describe('check-in con QR', () => {
+  let e: Escenario
+
+  beforeAll(async () => {
+    e = await crearEscenario()
+    await cuotaDe(e.gymA, e.socioAMembresiaId, { periodo_desde: '2026-10-15', periodo_hasta: '2026-11-15' })
+  })
+
+  it('el entrenador escanea a un socio de su gimnasio y queda la entrada', async () => {
+    const { data, error } = await e.comoEntrenadorA.rpc('checkin_por_qr', {
+      p_codigo: await codigoDe(e.socioAMembresiaId),
+    })
+    expect(error).toBeNull()
+    expect(data).toMatchObject({
+      valido: true,
+      membership_id: e.socioAMembresiaId,
+      nuevo: true,
+      hoy: hoyEn('America/Argentina/Buenos_Aires'),
+      cuotas: [{ periodo_desde: '2026-10-15', periodo_hasta: '2026-11-15' }],
+    })
+
+    const { data: filas } = await admin
+      .from('checkins').select('metodo, registrado_por').eq('membership_id', e.socioAMembresiaId)
+    expect(filas).toEqual([{ metodo: 'qr', registrado_por: e.entrenadorAMembresiaId }])
+  })
+
+  it('un segundo escaneo el mismo día no duplica y devuelve la hora de la primera', async () => {
+    const codigo = await codigoDe(e.socioAMembresiaId)
+    const primera = await e.comoEntrenadorA.rpc('checkin_por_qr', { p_codigo: codigo })
+    const segunda = await e.comoAdminA.rpc('checkin_por_qr', { p_codigo: codigo })
+    expect(segunda.data).toMatchObject({ valido: true, nuevo: false })
+    expect((segunda.data as { hora_entrada: string }).hora_entrada)
+      .toBe((primera.data as { hora_entrada: string }).hora_entrada)
+
+    const { count } = await admin
+      .from('checkins').select('id', { count: 'exact', head: true }).eq('membership_id', e.socioAMembresiaId)
+    expect(count).toBe(1)
+  })
+
+  it('el código de un socio de otro gimnasio no es válido y no deja rastro', async () => {
+    const { data } = await e.comoAdminA.rpc('checkin_por_qr', { p_codigo: await codigoDe(e.socioBMembresiaId) })
+    expect(data).toEqual({ valido: false })
+    const { count } = await admin
+      .from('checkins').select('id', { count: 'exact', head: true }).eq('membership_id', e.socioBMembresiaId)
+    expect(count).toBe(0)
+  })
+
+  it('un código inexistente no es válido', async () => {
+    const { data } = await e.comoAdminA.rpc('checkin_por_qr', { p_codigo: '0'.repeat(32) })
+    expect(data).toEqual({ valido: false })
+  })
+
+  it('un socio no puede hacerle el check-in a otro', async () => {
+    const { data } = await e.comoSocioA.rpc('checkin_por_qr', { p_codigo: await codigoDe(e.socioA2MembresiaId) })
+    expect(data).toEqual({ valido: false })
+  })
+
+  it('una membresía dada de baja no es válida', async () => {
+    await admin.from('memberships').update({ estado: 'inactivo' }).eq('id', e.socioA2MembresiaId)
+    const { data } = await e.comoAdminA.rpc('checkin_por_qr', { p_codigo: await codigoDe(e.socioA2MembresiaId) })
+    await admin.from('memberships').update({ estado: 'activo' }).eq('id', e.socioA2MembresiaId)
+    expect(data).toEqual({ valido: false })
+  })
+
+  it('el check-in manual queda marcado como manual', async () => {
+    const { data } = await e.comoEntrenadorA.rpc('checkin_manual', { p_membership_id: e.socioA2MembresiaId })
+    expect(data).toMatchObject({ valido: true, nuevo: true, membership_id: e.socioA2MembresiaId })
+    const { data: filas } = await admin
+      .from('checkins').select('metodo').eq('membership_id', e.socioA2MembresiaId)
+    expect(filas).toEqual([{ metodo: 'manual' }])
+  })
+
+  it('el check-in manual de un socio de otro gimnasio no es válido', async () => {
+    const { data } = await e.comoAdminA.rpc('checkin_manual', { p_membership_id: e.socioBMembresiaId })
+    expect(data).toEqual({ valido: false })
+  })
+
+  it('la función interna no se puede llamar desde afuera', async () => {
+    const { error } = await e.comoAdminA.rpc('registrar_checkin', {
+      p_membership_id: e.socioAMembresiaId, p_metodo: 'manual',
+    } as never)
+    expect(error).not.toBeNull()
+  })
+})
+
+// A cualquier hora del día, al menos una de estas dos zonas —UTC+14 y UTC−11—
+// está en una fecha distinta de la de UTC. Si el día se calculara en UTC, uno
+// de los dos tests falla siempre.
+describe('el día del check-in es el del gimnasio', () => {
+  let e: Escenario
+
+  beforeAll(async () => {
+    e = await crearEscenario()
+  })
+
+  for (const [zona, membresia] of [
+    ['Pacific/Kiritimati', 'socioAMembresiaId'],
+    ['Pacific/Pago_Pago', 'socioA2MembresiaId'],
+  ] as const) {
+    it(`en ${zona}`, async () => {
+      await admin.from('gyms').update({ zona_horaria: zona }).eq('id', e.gymA)
+      const { data } = await e.comoAdminA.rpc('checkin_manual', { p_membership_id: e[membresia] })
+      expect((data as { hoy: string }).hoy).toBe(hoyEn(zona))
+      const { data: fila } = await admin.from('checkins').select('dia').eq('membership_id', e[membresia]).single()
+      expect(fila!.dia).toBe(hoyEn(zona))
+    })
+  }
+})
+
 // Se exportan para los describe de las tareas siguientes, que viven en este
 // mismo archivo.
 export { cuotaPara, cuotaDe, checkinDe }
