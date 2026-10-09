@@ -1,11 +1,16 @@
 'use server'
 
+import { randomBytes } from 'node:crypto'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { FunctionsHttpError } from '@supabase/supabase-js'
-import { normalizarEmail, validarAlta } from '@gym/core'
+import {
+  METODOS_PAGO, aNumero, esCodigoQr, estadoCuota, hoyEnZona, normalizarEmail, validarAlta, validarPago,
+  type EstadoCuota, type MetodoPago, type PeriodoCuota,
+} from '@gym/core'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { miMembresia } from '@/lib/membresia'
+import { urlsDeFotos } from '@/lib/fotos'
 
 // Las reglas de quién puede hacer qué viven en la RLS y en las funciones de
 // la base: acá no se vuelve a chequear el rol, para no tener la regla escrita
@@ -77,4 +82,183 @@ async function mensajeDeLaFuncion(error: unknown): Promise<string> {
     }
   }
   return 'No se pudo crear la cuenta, probá de nuevo'
+}
+
+// ---------------------------------------------------------------------------
+// Ficha: pagos, foto, datos, baja, QR
+// ---------------------------------------------------------------------------
+
+const revalidarSocio = (membershipId: string) => {
+  revalidatePath(`/socios/${membershipId}`)
+  revalidatePath('/socios')
+}
+
+export type EstadoPago = { error?: string; ok?: boolean; valores?: Record<string, string> }
+
+export async function registrarPago(_previo: EstadoPago, datos: FormData): Promise<EstadoPago> {
+  const valores = Object.fromEntries(
+    ['periodo_desde', 'periodo_hasta', 'monto', 'metodo', 'fecha_pago', 'notas'].map((c) => [c, texto(datos, c)]),
+  )
+  const membershipId = texto(datos, 'membership_id')
+  const pago = {
+    periodo_desde: valores.periodo_desde ?? '',
+    periodo_hasta: valores.periodo_hasta ?? '',
+    monto: aNumero(valores.monto ?? ''),
+  }
+  const invalido = validarPago(pago)
+  if (invalido) return { error: invalido, valores }
+  if (!METODOS_PAGO.includes(valores.metodo as MetodoPago)) return { error: 'Elegí cómo pagó', valores }
+
+  const yo = await miMembresia()
+  if (!yo) return { error: SESION_VENCIDA, valores }
+
+  const supabase = await crearClienteServidor()
+  const { error } = await supabase.from('cuotas').insert({
+    gym_id: yo.gym_id,
+    membership_id: membershipId,
+    ...pago,
+    metodo: valores.metodo as MetodoPago,
+    fecha_pago: valores.fecha_pago || hoyEnZona(yo.zona),
+    notas: valores.notas || null,
+    registrado_por: yo.id,
+  })
+  if (error) return { error: 'No pudimos registrar el pago', valores }
+
+  revalidarSocio(membershipId)
+  return { ok: true }
+}
+
+export async function borrarPago(id: string, membershipId: string): Promise<Resultado> {
+  const supabase = await crearClienteServidor()
+  // El .select() no es decorativo: un delete que la RLS niega no da error,
+  // borra cero filas.
+  const { data, error } = await supabase.from('cuotas').delete().eq('id', id).select('id')
+  if (error || !data?.length) return { error: 'No pudimos borrar el pago' }
+  revalidarSocio(membershipId)
+  return {}
+}
+
+export async function guardarFoto(membershipId: string, ruta: string): Promise<Resultado> {
+  const supabase = await crearClienteServidor()
+  const { data, error } = await supabase
+    .from('memberships').update({ foto: ruta }).eq('id', membershipId).select('id')
+  if (error || !data?.length) return { error: 'No pudimos guardar la foto' }
+  revalidarSocio(membershipId)
+  return {}
+}
+
+export type EstadoDatos = { error?: string; ok?: boolean }
+
+export async function editarDatos(_previo: EstadoDatos, datos: FormData): Promise<EstadoDatos> {
+  const membershipId = texto(datos, 'membership_id')
+  const supabase = await crearClienteServidor()
+  const { error } = await supabase.rpc('editar_datos_socio', {
+    p_membership_id: membershipId,
+    p_nombre: texto(datos, 'nombre'),
+    p_apellido: texto(datos, 'apellido'),
+    p_telefono: texto(datos, 'telefono'),
+  })
+  if (error?.code === '22023') return { error: 'Poné el nombre' }
+  if (error) return { error: 'No pudimos guardar los datos' }
+  revalidarSocio(membershipId)
+  return { ok: true }
+}
+
+export async function cambiarEstado(membershipId: string, estado: 'activo' | 'inactivo'): Promise<Resultado> {
+  const supabase = await crearClienteServidor()
+  const { data, error } = await supabase
+    .from('memberships').update({ estado }).eq('id', membershipId).select('id')
+  if (error || !data?.length) return { error: 'No pudimos cambiar el estado' }
+  revalidarSocio(membershipId)
+  return {}
+}
+
+/**
+ * Para cuando el socio sospecha que alguien usa su código. El viejo deja de
+ * servir en el acto; el teléfono del socio muestra el nuevo la próxima vez
+ * que abra Perfil con señal.
+ */
+export async function regenerarQr(membershipId: string): Promise<Resultado> {
+  const supabase = await crearClienteServidor()
+  const { data, error } = await supabase
+    .from('memberships')
+    .update({ codigo_qr: randomBytes(16).toString('hex') })
+    .eq('id', membershipId)
+    .select('id')
+  if (error || !data?.length) return { error: 'No pudimos regenerar el código' }
+  return {}
+}
+
+// ---------------------------------------------------------------------------
+// Check-in: lo usan la ficha y la pantalla de escaneo
+// ---------------------------------------------------------------------------
+
+export type ResultadoEntrada =
+  | { tipo: 'valido'; membershipId: string; nombre: string; fotoUrl: string | null; nuevo: boolean; hora: string; estado: EstadoCuota }
+  | { tipo: 'invalido' }
+  | { tipo: 'error' }
+
+/** Lo que devuelven checkin_por_qr y checkin_manual (0018). */
+type RespuestaCheckin =
+  | { valido: false }
+  | {
+      valido: true
+      membership_id: string
+      nombre: string
+      apellido: string
+      foto: string | null
+      nuevo: boolean
+      hora_entrada: string
+      hoy: string
+      cuotas: PeriodoCuota[]
+    }
+
+async function aResultado(respuesta: { data: unknown; error: unknown }): Promise<ResultadoEntrada> {
+  if (respuesta.error || !respuesta.data) return { tipo: 'error' }
+  const r = respuesta.data as RespuestaCheckin
+  if (!r.valido) return { tipo: 'invalido' }
+
+  const yo = await miMembresia()
+  const supabase = await crearClienteServidor()
+  const fotos = await urlsDeFotos(supabase, [r.foto])
+  const hora = new Intl.DateTimeFormat('es-AR', {
+    hour: '2-digit', minute: '2-digit', timeZone: yo?.zona ?? 'America/Argentina/Buenos_Aires',
+  }).format(new Date(r.hora_entrada))
+
+  revalidatePath('/asistencia')
+  revalidatePath(`/socios/${r.membership_id}`)
+
+  return {
+    tipo: 'valido',
+    membershipId: r.membership_id,
+    nombre: `${r.nombre} ${r.apellido}`.trim() || 'Sin nombre',
+    fotoUrl: r.foto ? fotos.get(r.foto) ?? null : null,
+    nuevo: r.nuevo,
+    hora,
+    // `hoy` lo calcula la base en la zona del gimnasio: el mismo "hoy" con el
+    // que decidió el día de la entrada.
+    estado: estadoCuota(r.cuotas, r.hoy),
+  }
+}
+
+export async function escanear(codigo: string): Promise<ResultadoEntrada> {
+  // El navegador ya filtra con debeProcesarLectura; esto cubre a quien llame
+  // la acción directamente.
+  if (!esCodigoQr(codigo)) return { tipo: 'invalido' }
+  const supabase = await crearClienteServidor()
+  return aResultado(await supabase.rpc('checkin_por_qr', { p_codigo: codigo }))
+}
+
+export async function entradaManual(membershipId: string): Promise<ResultadoEntrada> {
+  const supabase = await crearClienteServidor()
+  return aResultado(await supabase.rpc('checkin_manual', { p_membership_id: membershipId }))
+}
+
+export async function borrarEntrada(id: string): Promise<Resultado> {
+  const supabase = await crearClienteServidor()
+  const { data, error } = await supabase.from('checkins').delete().eq('id', id).select('id, membership_id')
+  if (error || !data?.length) return { error: 'No pudimos borrar la entrada' }
+  revalidatePath('/asistencia')
+  revalidatePath(`/socios/${data[0]!.membership_id}`)
+  return {}
 }
