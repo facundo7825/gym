@@ -7,6 +7,7 @@ import {
   textoPeriodo,
 } from '@gym/core'
 import { Aviso, Boton, Fondo, Tarjeta, Texto } from '@/ui'
+import { CambiarContrasena } from '@/components/cambiar-contrasena'
 import { QrSocio } from '@/components/qr-socio'
 import { cerrarSesion } from '@/lib/cerrar-sesion'
 import { fechaConDia, fechaYHora, horaCorta, hoyLocal } from '@/lib/fechas'
@@ -104,7 +105,9 @@ export default function Perfil() {
           )
         })()}
 
-        {/* CAMBIAR CONTRASEÑA: lo agrega la tarea 14, acá. */}
+        {/* Fuera de la condición de membresía activa: un socio dado de baja
+            también puede querer cambiarla. */}
+        <CambiarContrasena />
 
         <Boton
           titulo="Cerrar sesión" variante="secundario" icono="log-out-outline"
