@@ -18,19 +18,19 @@ export default async function Ejercicios() {
   const globales = ejercicios?.filter((x) => x.gym_id === null) ?? []
 
   return (
-    <div className="space-y-8">
-      <h1 className="text-2xl font-semibold">Ejercicios</h1>
+    <div className="space-y-6">
+      <h1 className="titulo-pagina">Ejercicios</h1>
 
       <FormularioEjercicio maquinas={maquinas ?? []} />
 
       <section>
-        <h2 className="mb-2 font-semibold">De mi gimnasio ({propios.length})</h2>
+        <h2 className="etiqueta mb-2">De mi gimnasio ({propios.length})</h2>
         {propios.length ? (
-          <ul className="divide-y rounded border">
+          <ul className="space-y-2">
             {propios.map((x) => (
-              <li key={x.id} className="px-4 py-3">
+              <li key={x.id} className="tarjeta">
                 {x.nombre}
-                <span className="text-gray-500">
+                <span className="text-texto-secundario">
                   {' · '}{etiqueta(x.grupo_muscular)}{' · '}{etiqueta(x.equipamiento)}
                 </span>
                 <SubirVideo ejercicioId={x.id} tieneVideo={x.video_id !== null} />
@@ -38,20 +38,20 @@ export default async function Ejercicios() {
             ))}
           </ul>
         ) : (
-          <p className="text-gray-600">Todavía no cargaste ejercicios propios.</p>
+          <p className="text-texto-secundario">Todavía no cargaste ejercicios propios.</p>
         )}
       </section>
 
       <section>
-        <h2 className="mb-2 font-semibold">Catálogo general ({globales.length})</h2>
-        <p className="mb-2 text-sm text-gray-600">
+        <h2 className="etiqueta mb-2">Catálogo general ({globales.length})</h2>
+        <p className="mb-2 text-sm text-texto-secundario">
           Vienen incluidos con la plataforma. Los ven todos los gimnasios y no se editan.
         </p>
-        <ul className="divide-y rounded border">
+        <ul className="space-y-2">
           {globales.map((x) => (
-            <li key={x.id} className="px-4 py-3">
+            <li key={x.id} className="tarjeta">
               {x.nombre}
-              <span className="text-gray-500">{' · '}{etiqueta(x.grupo_muscular)}</span>
+              <span className="text-texto-secundario">{' · '}{etiqueta(x.grupo_muscular)}</span>
             </li>
           ))}
         </ul>

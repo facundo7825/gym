@@ -1,7 +1,7 @@
 # Diseño — Registro de entrenamiento (etapa 3)
 
 **Fecha:** 2026-09-10
-**Estado:** Aprobado en conversación — secciones 1 a 3 el 2026-09-10, 4 a 7 el 2026-10-08.
+**Estado:** Implementado. Plan: [`2026-10-08-registro-entrenamiento.md`](../plans/2026-10-08-registro-entrenamiento.md).
 **Desarrolla:** [Diseño general](2026-08-27-gym-saas-design.md), secciones 5 (Registro), 7 (Sin conexión) y 8 (Progreso)
 
 ---
@@ -209,6 +209,14 @@ El resto de los errores se clasifica en dos:
   reintenta, no se borra, y el aviso de estado lo dice. Si la rechazada es una
   sesión, sus series quedan frenadas con ella: no tienen a qué colgarse.
 
+Una excepción: si la base rechaza una sesión colgada de un día de rutina que ya no
+existe, se reenvía una vez como libre, sin día. Imita el `on delete set null` de
+`rutina_dia_id`: borrar un día no se lleva el historial, y la cola tampoco.
+
+La cola usa todas las membresías del socio, activas o no, y no solo las activas:
+así lo que quedó de una membresía dada de baja se envía, la base lo rechaza y el
+aviso lo dice, en vez de desaparecer en silencio.
+
 Se descartó reintentar siempre —con un rechazo permanente el contador no baja
 nunca y el socio no sabe por qué— y descartar la fila, que rompe lo único que la
 cola promete.
@@ -306,6 +314,12 @@ cruza la marca —una sola vez por sesión, porque las siguientes ya parten de
 arriba—. Si una serie bate los dos, se avisa el de peso, que es el que se entiende
 sin explicación.
 
+Las marcas del aviso son por membresía: las del gimnasio donde se entrena.
+Progreso y el gráfico juntan todas las membresías del socio, así que alguien que
+entrena en dos gimnasios puede ver un punto dorado que el aviso no anunció. Se
+acepta: es un caso raro, y el aviso local no puede conocer el otro gimnasio sin
+señal.
+
 ### Marcar una serie es registrarla
 
 Tocar el tilde de una serie es lo que la inserta en la cola, con `completada =
@@ -316,6 +330,10 @@ registran, y el socio lo decidió.
 `completada` queda en el esquema tal como lo fija el diseño general, con `true`
 por defecto. Esta etapa no escribe `false`, y todas las lecturas de Progreso
 filtran por `completada`, así que el día que exista no ensucia los gráficos.
+
+Al retomar una sesión, los ejercicios que ya tienen series en ella no muestran
+"La vez pasada" y se precargan por la rutina: una vez sincronizada, la sesión
+abierta sería su propia "vez pasada".
 
 ### La pestaña Progreso
 

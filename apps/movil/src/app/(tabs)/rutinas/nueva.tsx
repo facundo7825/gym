@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
+import { Alert, StyleSheet, View } from 'react-native'
 import { Stack, useRouter } from 'expo-router'
-import { NIVELES_RUTINA, OBJETIVOS_RUTINA, etiqueta, type NivelRutina, type ObjetivoRutina } from '@gym/core'
+import { ESPACIO, NIVELES_RUTINA, OBJETIVOS_RUTINA, etiqueta, type NivelRutina, type ObjetivoRutina } from '@gym/core'
 import { supabase } from '@/lib/supabase'
+import { Boton, Campo, Chip, Fondo, Texto } from '@/ui'
 
 export default function NuevaRutina() {
   const router = useRouter()
@@ -52,59 +53,40 @@ export default function NuevaRutina() {
   }
 
   return (
-    <View style={estilos.contenedor}>
+    <Fondo style={estilos.contenedor}>
       <Stack.Screen options={{ title: 'Nueva rutina' }} />
 
-      <TextInput
-        style={estilos.campo} placeholder="Nombre de la rutina"
+      <Campo
+        placeholder="Nombre de la rutina"
         value={nombre} onChangeText={setNombre}
       />
 
-      <Text style={estilos.etiqueta}>Objetivo</Text>
+      <Texto variante="chico" tono="secundario" style={estilos.etiqueta}>Objetivo</Texto>
       <View style={estilos.chips}>
         {OBJETIVOS_RUTINA.map((v) => (
           <Chip key={v} activo={objetivo === v} texto={etiqueta(v)} onPress={() => setObjetivo(v)} />
         ))}
       </View>
 
-      <Text style={estilos.etiqueta}>Nivel</Text>
+      <Texto variante="chico" tono="secundario" style={estilos.etiqueta}>Nivel</Texto>
       <View style={estilos.chips}>
         {NIVELES_RUTINA.map((v) => (
           <Chip key={v} activo={nivel === v} texto={etiqueta(v)} onPress={() => setNivel(v)} />
         ))}
       </View>
 
-      <Pressable style={estilos.boton} onPress={crear} disabled={guardando}>
-        <Text style={estilos.botonTexto}>
-          {guardando ? 'Creando…' : 'Crear y agregar días'}
-        </Text>
-      </Pressable>
-    </View>
-  )
-}
-
-function Chip({ activo, texto, onPress }: {
-  activo: boolean; texto: string; onPress: () => void
-}) {
-  return (
-    <Pressable onPress={onPress} style={[estilos.chip, activo && estilos.chipActivo]}>
-      <Text style={activo ? estilos.chipTextoActivo : estilos.chipTexto}>{texto}</Text>
-    </Pressable>
+      <Boton
+        titulo={guardando ? 'Creando…' : 'Crear y agregar días'}
+        onPress={crear} deshabilitado={guardando}
+        style={estilos.boton}
+      />
+    </Fondo>
   )
 }
 
 const estilos = StyleSheet.create({
-  contenedor: { flex: 1, padding: 16, gap: 8 },
-  campo: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12 },
-  etiqueta: { color: '#777', fontSize: 13, marginTop: 8 },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: {
-    paddingHorizontal: 12, paddingVertical: 6,
-    borderRadius: 16, backgroundColor: '#eee',
-  },
-  chipActivo: { backgroundColor: '#111' },
-  chipTexto: { color: '#333' },
-  chipTextoActivo: { color: '#fff' },
-  boton: { backgroundColor: '#111', borderRadius: 8, padding: 14, alignItems: 'center', marginTop: 12 },
-  botonTexto: { color: '#fff' },
+  contenedor: { padding: ESPACIO.l, gap: ESPACIO.s },
+  etiqueta: { marginTop: ESPACIO.s },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: ESPACIO.s },
+  boton: { marginTop: ESPACIO.m },
 })

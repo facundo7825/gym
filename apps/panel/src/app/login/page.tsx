@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { Zap } from 'lucide-react'
 import { crearClienteNavegador } from '@/lib/supabase/navegador'
 
 export default function Login() {
@@ -33,26 +34,29 @@ export default function Login() {
 
   return (
     <main className="flex min-h-screen items-center justify-center p-6">
-      <form onSubmit={enviar} className="w-full max-w-sm space-y-4">
-        <h1 className="text-2xl font-semibold">Panel del gimnasio</h1>
+      <form onSubmit={enviar} className="tarjeta w-full max-w-sm space-y-5 p-8">
+        <span className="fondo-degrade flex size-12 items-center justify-center rounded-grande" aria-hidden>
+          <Zap size={24} />
+        </span>
+        <div className="space-y-1">
+          <h1 className="titulo-pagina">Panel del gimnasio</h1>
+          <p className="text-sm text-texto-secundario">Entrá con tu cuenta del personal.</p>
+        </div>
 
         <input
-          type="email" required value={email} placeholder="Correo"
+          type="email" required value={email} placeholder="Correo" autoComplete="email"
           onChange={(e) => setEmail(e.target.value)}
-          className="w-full rounded border px-3 py-2"
+          className="campo"
         />
         <input
-          type="password" required value={password} placeholder="Contraseña"
+          type="password" required value={password} placeholder="Contraseña" autoComplete="current-password"
           onChange={(e) => setPassword(e.target.value)}
-          className="w-full rounded border px-3 py-2"
+          className="campo"
         />
 
-        {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
+        {error && <p role="alert" className="text-sm text-rechazo">{error}</p>}
 
-        <button
-          type="submit" disabled={cargando}
-          className="w-full rounded bg-black py-2 text-white disabled:opacity-50"
-        >
+        <button type="submit" disabled={cargando} className="boton boton-principal w-full">
           {cargando ? 'Entrando…' : 'Entrar'}
         </button>
       </form>

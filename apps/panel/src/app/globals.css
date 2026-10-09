@@ -1,26 +1,121 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/*
+ * Los valores del sistema visual. Son los mismos de packages/core/src/tema.ts:
+ * Tailwind no puede importar TypeScript, así que se repiten acá, y
+ * packages/core/tests/tema.test.ts verifica que coincidan. Cambiar uno sin el
+ * otro rompe ese test.
+ */
+@theme {
+  --color-fondo: #0a0f1e;
+  --color-fondo-alto: #1e1650;
+  --color-fondo-barra: rgba(10,15,30,0.96);
+  --color-superficie: rgba(255,255,255,0.05);
+  --color-superficie-borde: rgba(255,255,255,0.08);
+  --color-superficie-elevada: rgba(255,255,255,0.08);
+  --color-hundido: rgba(0,0,0,0.3);
+  --color-texto: #eef1ff;
+  --color-texto-secundario: #8c93b8;
+  --color-texto-tenue: #5b6290;
+  --color-violeta: #7c5cff;
+  --color-cian: #22d3ee;
+  --color-sobre-degrade: rgba(255,255,255,0.2);
+  --color-pendiente: #f59e0b;
+  --color-pendiente-suave: rgba(245,158,11,0.12);
+  --color-rechazo: #f87171;
+  --color-rechazo-suave: rgba(248,113,113,0.12);
+  --color-record: #facc15;
+  --color-velo: rgba(0,0,0,0.4);
+  --radius-chico: 10px;
+  --radius-medio: 14px;
+  --radius-grande: 18px;
+  --radius-enorme: 24px;
+  --font-sans: var(--font-sora), ui-sans-serif, system-ui, sans-serif;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  color-scheme: dark;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: radial-gradient(90% 70% at 100% 0%, var(--color-fondo-alto) 0%, var(--color-fondo) 55%) fixed;
+  background-color: var(--color-fondo);
+  color: var(--color-texto);
+  font-family: var(--font-sans);
+}
+
+/*
+ * Las piezas del panel, el equivalente de apps/movil/src/ui. Solo usan las
+ * variables del @theme: ningún color escrito a mano. Las sombras y los halos
+ * mezclan la variable con transparente en vez de repetir el valor.
+ */
+@layer components {
+  .tarjeta {
+    background: var(--color-superficie);
+    border: 1px solid var(--color-superficie-borde);
+    border-radius: var(--radius-grande);
+    padding: 1rem;
+  }
+
+  .titulo-pagina { font-size: 1.5rem; line-height: 2rem; font-weight: 700; letter-spacing: -0.01em; }
+
+  .etiqueta {
+    font-size: 0.6875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--color-texto-tenue);
+  }
+
+  .enlace { color: var(--color-cian); font-weight: 600; }
+  .enlace:hover { text-decoration: underline; }
+
+  .fondo-degrade { background-image: linear-gradient(135deg, var(--color-violeta), var(--color-cian)); }
+
+  .texto-degrade {
+    background-image: linear-gradient(90deg, var(--color-violeta), var(--color-cian));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+
+  .boton {
+    display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+    min-height: 44px; padding: 0 1.25rem; border-radius: var(--radius-medio);
+    font-size: 0.875rem; font-weight: 600; cursor: pointer;
+    transition: opacity 150ms, transform 150ms;
+  }
+  .boton:active { transform: scale(0.98); }
+  .boton:disabled { opacity: 0.4; cursor: default; }
+
+  .boton-principal {
+    color: var(--color-texto);
+    background-image: linear-gradient(135deg, var(--color-violeta), var(--color-cian));
+    box-shadow: 0 6px 18px color-mix(in srgb, var(--color-violeta) 35%, transparent);
+  }
+  .boton-secundario {
+    color: var(--color-texto);
+    background: var(--color-superficie-elevada);
+    border: 1px solid var(--color-superficie-borde);
+  }
+  .boton-peligro { color: var(--color-rechazo); background: var(--color-rechazo-suave); }
+
+  .campo {
+    width: 100%; min-height: 44px; padding: 0.625rem 1rem;
+    border-radius: var(--radius-medio);
+    background: var(--color-hundido); color: var(--color-texto);
+    border: 1px solid var(--color-superficie-borde);
+  }
+  .campo::placeholder { color: var(--color-texto-tenue); }
+  .campo:focus {
+    outline: none; border-color: var(--color-violeta);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-violeta) 25%, transparent);
+  }
+  select.campo option { background: var(--color-fondo); color: var(--color-texto); }
+
+  .chip {
+    display: inline-flex; align-items: center; min-height: 36px; padding: 0 0.875rem;
+    border-radius: 999px; font-size: 0.8125rem;
+    color: var(--color-texto-secundario);
+    background: var(--color-superficie); border: 1px solid var(--color-superficie-borde);
+  }
+  .chip-activo {
+    color: var(--color-texto); border-color: transparent;
+    background-image: linear-gradient(135deg, var(--color-violeta), var(--color-cian));
+  }
 }

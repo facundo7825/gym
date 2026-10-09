@@ -1,6 +1,6 @@
-import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
+import { NavLateral } from './nav-lateral'
 
 export default async function LayoutPanel({
   children,
@@ -25,28 +25,28 @@ export default async function LayoutPanel({
 
   if (!membresia) {
     return (
-      <main className="p-8">
-        <h1 className="text-xl font-semibold">Tu cuenta no está asociada a ningún gimnasio</h1>
-        <p className="mt-2 text-gray-600">Pedile a un administrador que te dé de alta.</p>
+      <main className="flex flex-1 items-center justify-center p-8">
+        <div className="tarjeta max-w-md space-y-2 p-6">
+          <h1 className="text-xl font-semibold">Tu cuenta no está asociada a ningún gimnasio</h1>
+          <p className="text-texto-secundario">Pedile a un administrador que te dé de alta.</p>
+        </div>
       </main>
     )
   }
 
   return (
     <div className="flex min-h-screen">
-      <aside className="w-60 shrink-0 border-r p-4">
-        <p className="font-semibold">{membresia.gyms?.nombre}</p>
-        <p className="text-sm text-gray-600">
-          {membresia.profiles?.nombre} · {membresia.rol}
-        </p>
-
-        <nav className="mt-6 flex flex-col gap-1 text-sm">
-          <Link href="/" className="rounded px-2 py-1 hover:bg-gray-100">Inicio</Link>
-          <Link href="/maquinas" className="rounded px-2 py-1 hover:bg-gray-100">Máquinas</Link>
-          <Link href="/ejercicios" className="rounded px-2 py-1 hover:bg-gray-100">Ejercicios</Link>
-          <Link href="/rutinas" className="rounded px-2 py-1 hover:bg-gray-100">Rutinas</Link>
-          <Link href="/socios" className="rounded px-2 py-1 hover:bg-gray-100">Socios</Link>
-        </nav>
+      <aside className="w-64 shrink-0 border-r border-superficie-borde bg-hundido p-5">
+        <div className="flex items-center gap-3">
+          <span className="fondo-degrade size-9 shrink-0 rounded-medio" aria-hidden />
+          <div className="min-w-0">
+            <p className="truncate font-semibold">{membresia.gyms?.nombre}</p>
+            <p className="truncate text-xs text-texto-secundario">
+              {membresia.profiles?.nombre} · {membresia.rol}
+            </p>
+          </div>
+        </div>
+        <NavLateral />
       </aside>
       <main className="flex-1 p-8">{children}</main>
     </div>

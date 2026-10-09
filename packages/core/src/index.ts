@@ -20,3 +20,26 @@ export { validarBorrador, diaAMostrar } from './rutina'
 export type {
   EjercicioBorrador, DiaBorrador, RutinaBorrador, DiaOrdenable,
 } from './rutina'
+export {
+  PESO_MAXIMO_KG, aNumero, validarSerie, repsSugeridas, volumen, detectarRecord,
+  marcaDeSesion, fusionarMarcas, formatearKg, detalleSeries, textoVezPasada,
+  filasPrecargadas,
+} from './registro'
+export type {
+  SerieHecha, MejorMarca, Marcas, TipoRecord, Prescripcion, FilaPrecargada,
+} from './registro'
+export {
+  siguientesOperaciones, clasificarRespuesta, estadoTras, estadoFinTras,
+  resumenCola, textoEstadoCola, sesionesLimpiables, sesionAbierta, reenviarComoLibre,
+} from './cola'
+export type {
+  EstadoEnvio, EstadoFin, SesionEnCola, SerieEnCola, Operacion, Clasificacion, ResumenCola,
+} from './cola'
+export {
+  evolucionPorSesion, marcarRecords, geometriaGrafico, MARGENES_GRAFICO,
+} from './evolucion'
+export type { FilaSerie, PuntoEvolucion, Margenes, Geometria } from './evolucion'
+export {
+  COLORES, DEGRADE, RADIOS, ESPACIO, TAMANOS, TOQUE_MINIMO, VARIABLES_CSS, contraste,
+} from './tema'
+export { formatearCronometro } from './tiempo'

@@ -439,6 +439,125 @@ export type Database = {
           },
         ]
       }
+      series_registradas: {
+        Row: {
+          completada: boolean
+          created_at: string
+          ejercicio_id: string
+          id: string
+          id_local: string
+          numero_serie: number
+          peso_kg: number
+          repeticiones: number
+          rpe: number | null
+          sesion_id: string
+        }
+        Insert: {
+          completada?: boolean
+          created_at?: string
+          ejercicio_id: string
+          id?: string
+          id_local: string
+          numero_serie: number
+          peso_kg: number
+          repeticiones: number
+          rpe?: number | null
+          sesion_id: string
+        }
+        Update: {
+          completada?: boolean
+          created_at?: string
+          ejercicio_id?: string
+          id?: string
+          id_local?: string
+          numero_serie?: number
+          peso_kg?: number
+          repeticiones?: number
+          rpe?: number | null
+          sesion_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "series_registradas_ejercicio_id_fkey"
+            columns: ["ejercicio_id"]
+            isOneToOne: false
+            referencedRelation: "ejercicios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "series_registradas_sesion_id_fkey"
+            columns: ["sesion_id"]
+            isOneToOne: false
+            referencedRelation: "sesiones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "series_registradas_sesion_id_fkey"
+            columns: ["sesion_id"]
+            isOneToOne: false
+            referencedRelation: "ultimas_sesiones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sesiones: {
+        Row: {
+          created_at: string
+          fin: string | null
+          gym_id: string
+          id: string
+          id_local: string
+          inicio: string
+          membership_id: string
+          notas: string | null
+          rutina_dia_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          fin?: string | null
+          gym_id: string
+          id?: string
+          id_local: string
+          inicio: string
+          membership_id: string
+          notas?: string | null
+          rutina_dia_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          fin?: string | null
+          gym_id?: string
+          id?: string
+          id_local?: string
+          inicio?: string
+          membership_id?: string
+          notas?: string | null
+          rutina_dia_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sesiones_gym_id_fkey"
+            columns: ["gym_id"]
+            isOneToOne: false
+            referencedRelation: "gyms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sesiones_membership_id_fkey"
+            columns: ["membership_id"]
+            isOneToOne: false
+            referencedRelation: "memberships"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sesiones_rutina_dia_id_fkey"
+            columns: ["rutina_dia_id"]
+            isOneToOne: false
+            referencedRelation: "rutina_dias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       videos: {
         Row: {
           created_at: string
@@ -492,7 +611,50 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      mejores_marcas: {
+        Row: {
+          ejercicio_id: string | null
+          mejor_peso_kg: number | null
+          mejor_volumen_kg: number | null
+          membership_id: string | null
+          sesiones: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "series_registradas_ejercicio_id_fkey"
+            columns: ["ejercicio_id"]
+            isOneToOne: false
+            referencedRelation: "ejercicios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sesiones_membership_id_fkey"
+            columns: ["membership_id"]
+            isOneToOne: false
+            referencedRelation: "memberships"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ultimas_sesiones: {
+        Row: {
+          dia_nombre: string | null
+          fin: string | null
+          id: string | null
+          inicio: string | null
+          membership_id: string | null
+          series: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sesiones_membership_id_fkey"
+            columns: ["membership_id"]
+            isOneToOne: false
+            referencedRelation: "memberships"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       copiar_rutina: {
@@ -500,6 +662,7 @@ export type Database = {
         Returns: undefined
       }
       duplicar_plantilla: { Args: { p_rutina_id: string }; Returns: string }
+      es_mi_sesion: { Args: { p_sesion_id: string }; Returns: boolean }
       mi_membresia: { Args: { p_gym_id: string }; Returns: string }
       mi_rol: {
         Args: { p_gym_id: string }
@@ -518,6 +681,11 @@ export type Database = {
         }
         Returns: boolean
       }
+      puedo_ver_sesion: { Args: { p_sesion_id: string }; Returns: boolean }
+      puedo_ver_sesion_fila: {
+        Args: { p_gym_id: string; p_membership_id: string }
+        Returns: boolean
+      }
       reordenar_dias: {
         Args: { p_ids: string[]; p_rutina_id: string }
         Returns: undefined
@@ -530,6 +698,15 @@ export type Database = {
       tomar_rutina: {
         Args: { p_plantilla_id: string; p_propietario_id: string }
         Returns: string
+      }
+      ultima_vez: {
+        Args: { p_ejercicio_ids: string[] }
+        Returns: {
+          ejercicio_id: string
+          numero_serie: number
+          peso_kg: number
+          repeticiones: number
+        }[]
       }
     }
     Enums: {

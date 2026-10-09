@@ -12,19 +12,19 @@ export function FormularioMaquina() {
     <div className="space-y-2">
       <form action={accion} className="flex flex-wrap gap-2">
         <input name="nombre" placeholder="Nombre" required
-          className="rounded border px-3 py-2" />
+          className="campo w-auto" />
         <input name="marca" placeholder="Marca (opcional)"
-          className="rounded border px-3 py-2" />
+          className="campo w-auto" />
         <input name="cantidad" type="number" min={1} defaultValue={1}
-          className="w-24 rounded border px-3 py-2" />
+          className="campo w-24" />
         <button type="submit" disabled={pendiente}
-          className="rounded bg-black px-4 py-2 text-white disabled:opacity-50">
+          className="boton boton-principal">
           {pendiente ? 'Guardando…' : 'Agregar'}
         </button>
       </form>
 
       {estado.error && (
-        <p role="alert" className="text-sm text-red-600">{estado.error}</p>
+        <p role="alert" className="text-sm text-rechazo">{estado.error}</p>
       )}
     </div>
   )

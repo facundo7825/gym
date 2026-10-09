@@ -263,6 +263,8 @@ Sin escrituras concurrentes ni modificaciones, no hay conflictos que resolver. A
 
 **Estado siempre visible.** La app muestra "3 series sin sincronizar". El socio nunca queda con la duda de si se guardó.
 
+**Lo que el servidor rechaza para siempre.** La cola distingue un error transitorio —sin red, timeout, error del servidor— de uno permanente —un permiso negado, una clave foránea, un `check`—. Lo transitorio se reintenta; lo permanente queda marcado como rechazado: se guarda en el teléfono, no se reintenta y el aviso lo dice ("1 serie no se pudo guardar"). El caso típico es una membresía dada de baja mientras el socio entrenaba sin señal. Ver la sección 2 del [diseño de la etapa 3](2026-09-10-registro-entrenamiento-design.md).
+
 **Limitación aceptada:** los videos requieren conexión. Sin señal, el socio registra sus series con normalidad pero no puede ver el video del ejercicio. Precargar los videos de la rutina activa queda como mejora futura; ahora agregaría gestión de caché y de espacio en disco por un caso de borde.
 
 ---
@@ -280,6 +282,8 @@ Al abrir un ejercicio, lo primero que aparece es **la última vez**:
 > `La vez pasada: 60kg × 10, 10, 9, 8`
 
 con esos valores ya precargados. Si repitió, son cuatro toques. Registrar un entrenamiento completo tiene que costar menos de un minuto, o no lo hace nadie. Es la diferencia entre tener la función y no tenerla.
+
+**"La vez pasada" requiere señal.** El teléfono cachea la rutina activa y las mejores marcas, no el historial. Sin señal, la pantalla precarga lo que dice la rutina —series, repeticiones y peso sugerido— y el aviso de récord sigue funcionando. Si hiciera falta sin señal, es una tabla local más, no otro enfoque. Ver la sección 2 del [diseño de la etapa 3](2026-09-10-registro-entrenamiento-design.md).
 
 ### Progreso
 
@@ -359,7 +363,9 @@ Se usan *workspaces* de npm. Sin herramientas adicionales.
 | **Progreso** | Récords, gráficos por ejercicio, historial |
 | **Perfil** | Mi QR, estado de cuota, preferencias de notificación |
 
-El botón *Empezar* de la pestaña Hoy llega recién con la etapa 3, junto con el registro de entrenamiento. En la etapa 2 la pestaña es de solo lectura: muestra la rutina activa del socio y sus días, y es el socio quien elige qué día mirar —todavía no hay una detección automática de "qué toca hoy".
+La pestaña Hoy muestra la rutina activa del socio y sus días; es el socio quien elige qué día mirar —no hay una detección automática de "qué toca hoy"—. *Empezar* abre la pantalla de sesión con ese día, y *Entrenar libre* la abre vacía. Si una sesión quedó sin terminar, Hoy ofrece seguirla o terminarla.
+
+La pestaña Perfil todavía no existe: llega con las etapas 4 y 5, junto con el QR, las cuotas y las notificaciones.
 
 ### Panel del empleado — cinco secciones
 

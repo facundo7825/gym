@@ -1,22 +1,29 @@
 import { useEffect, useState } from 'react'
-import { ActivityIndicator, View, useColorScheme } from 'react-native'
+import { ActivityIndicator, View } from 'react-native'
 import {
-  DarkTheme,
-  DefaultTheme,
   Stack,
   ThemeProvider,
   router,
   useSegments,
 } from 'expo-router'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
+import { StatusBar } from 'expo-status-bar'
+import { useFonts, Sora_400Regular, Sora_600SemiBold, Sora_700Bold } from '@expo-google-fonts/sora'
 import type { Session } from '@supabase/supabase-js'
+import { COLORES } from '@gym/core'
+import { OPCIONES_ENCABEZADO, TEMA_NAVEGACION } from '@/ui'
 import { supabase } from '@/lib/supabase'
+import { iniciarSincronizacion } from '@/lib/sincronizar'
 
 export default function LayoutRaiz() {
   const [sesion, setSesion] = useState<Session | null>(null)
   const [cargando, setCargando] = useState(true)
   const segmentos = useSegments()
-  const esquema = useColorScheme()
+  // Sin la fuente cargada la primera pantalla se pinta con la del sistema y
+  // "salta" al cargar: se espera, igual que se espera la sesión. Si la fuente
+  // falla se sigue con la del sistema en vez de quedar en el spinner: la app
+  // funciona sin señal y no hay forma de reintentar.
+  const [fuentesListas, errorFuentes] = useFonts({ Sora_400Regular, Sora_600SemiBold, Sora_700Bold })
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -36,10 +43,19 @@ export default function LayoutRaiz() {
     if (sesion && enLogin) router.replace('/(tabs)')
   }, [sesion, cargando, segmentos])
 
-  if (cargando) {
+  // La cola se sincroniza mientras haya alguien con la sesión iniciada. Por el
+  // id y no por el objeto sesión: ese objeto cambia en cada refresco del token
+  // y volvería a enganchar los oyentes.
+  const usuarioId = sesion?.user.id
+  useEffect(() => {
+    if (!usuarioId) return
+    return iniciarSincronizacion()
+  }, [usuarioId])
+
+  if (cargando || (!fuentesListas && !errorFuentes)) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center' }}>
-        <ActivityIndicator />
+      <View style={{ flex: 1, justifyContent: 'center', backgroundColor: COLORES.fondo }}>
+        <ActivityIndicator color={COLORES.cian} />
       </View>
     )
   }
@@ -48,9 +64,10 @@ export default function LayoutRaiz() {
   // react-native-gesture-handler: esos gestos necesitan que la raíz de la app
   // esté envuelta acá, no solo en la pantalla que los usa.
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <ThemeProvider value={esquema === 'dark' ? DarkTheme : DefaultTheme}>
-        <Stack screenOptions={{ headerShown: false }} />
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: COLORES.fondo }}>
+      <ThemeProvider value={TEMA_NAVEGACION}>
+        <StatusBar style="light" />
+        <Stack screenOptions={{ headerShown: false, ...OPCIONES_ENCABEZADO }} />
       </ThemeProvider>
     </GestureHandlerRootView>
   )
