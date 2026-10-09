@@ -236,8 +236,8 @@ La barra lateral suma *Escanear* y *Asistencia* a *Socios*. En el celular,
 Editar el nombre o el teléfono cambia el perfil de la persona, que es único en
 la plataforma. Es aceptable: es la misma persona en todos lados. Hace falta una
 función `security definer` que permita al admin editar esos campos solo de
-personas con membresía en su gimnasio, porque la RLS de `profiles` solo deja
-editar el propio.
+socios con membresía en su gimnasio, activa o dada de baja, porque la RLS de
+`profiles` solo deja editar el propio.
 
 ### Escanear (`/escanear`, nueva)
 
