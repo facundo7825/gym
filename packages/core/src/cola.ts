@@ -199,10 +199,14 @@ export function sesionesLimpiables(sesiones: SesionEnCola[], series: SerieEnCola
     .map((s) => s.id_local)
 }
 
-/** La sesión que quedó sin terminar —la app se cerró, o el socio salió sin tocar Terminar—. */
+/**
+ * La sesión que quedó sin terminar —la app se cerró, o el socio salió sin tocar
+ * Terminar—. Una rechazada no cuenta: retomarla juntaría series que el
+ * servidor nunca va a recibir.
+ */
 export function sesionAbierta(sesiones: SesionEnCola[], membresias: string[]): SesionEnCola | null {
   const abiertas = propias(sesiones, membresias)
-    .filter((s) => s.fin === null)
+    .filter((s) => s.fin === null && s.estado !== 'rechazada')
     .sort((a, b) => b.inicio.localeCompare(a.inicio))
   return abiertas[0] ?? null
 }

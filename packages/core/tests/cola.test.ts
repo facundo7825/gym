@@ -197,6 +197,11 @@ describe('sesionAbierta', () => {
     const ajena = sesion({ id_local: 's2', membership_id: OTRO })
     expect(sesionAbierta([terminada, ajena], [YO])).toBeNull()
   })
+
+  // Una rechazada no se puede retomar: sus series nunca llegarían al servidor.
+  it('una rechazada sin fin no se ofrece', () => {
+    expect(sesionAbierta([sesion({ estado: 'rechazada' })], [YO])).toBeNull()
+  })
 })
 
 describe('reenviarComoLibre', () => {
