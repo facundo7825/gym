@@ -312,6 +312,11 @@ describe('editar los datos de un socio', () => {
     expect(error?.code).toBe('42501')
   })
 
+  it('el admin no puede editar al entrenador de su gimnasio', async () => {
+    const { error } = await editar(e.comoAdminA, e.entrenadorAMembresiaId)
+    expect(error?.code).toBe('42501')
+  })
+
   it('no deja un nombre vacío', async () => {
     const { error } = await editar(e.comoAdminA, e.socioAMembresiaId, '   ')
     expect(error?.code).toBe('22023')

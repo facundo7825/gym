@@ -69,6 +69,8 @@ $$;
 
 -- ---------------------------------------------------------------------------
 -- El admin edita nombre, apellido y teléfono de un socio de su gimnasio.
+-- Alcanza solo a socios (activos o dados de baja): no a entrenadores ni a
+-- otros admins, cuyo perfil global no le corresponde tocar.
 --
 -- profiles_editar_el_mio (0002) solo deja editar el propio perfil, y abrirlo
 -- con una política nueva dejaría al admin editar cualquier columna permitida
@@ -94,6 +96,7 @@ begin
   select m.user_id into v_user
   from public.memberships m
   where m.id = p_membership_id
+    and m.rol = 'socio'
     and public.mi_rol(m.gym_id) = 'admin';
 
   if v_user is null then
