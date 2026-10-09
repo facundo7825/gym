@@ -1,12 +1,11 @@
 import { useCallback, useState } from 'react'
-import {
-  ActivityIndicator, Alert, Button, FlatList, Pressable, ScrollView,
-  StyleSheet, Text, View,
-} from 'react-native'
-import { Link, useFocusEffect, useRouter } from 'expo-router'
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native'
+import { Link, Tabs, useFocusEffect, useRouter } from 'expo-router'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { diaAMostrar, sesionAbierta, type SesionEnCola } from '@gym/core'
+import Ionicons from '@expo/vector-icons/Ionicons'
+import { COLORES, ESPACIO, TOQUE_MINIMO, diaAMostrar, sesionAbierta, type SesionEnCola } from '@gym/core'
 import { AvisoSincronizacion } from '@/components/aviso-sincronizacion'
+import { Boton, Chip, Fondo, Tarjeta, Texto } from '@/ui'
 import { cerrarSesion } from '@/lib/cerrar-sesion'
 import { leerCola } from '@/lib/local/cola'
 import { membresiasGuardadas } from '@/lib/membresia'
@@ -86,68 +85,79 @@ export default function Hoy() {
 
   const entrenarLibre = () => router.push('/entrenar')
 
+  // Cerrar sesión pasa al encabezado: era un botón suelto al pie de cada estado.
+  const encabezado = (
+    <Tabs.Screen
+      options={{
+        headerRight: () => (
+          <Pressable
+            onPress={() => void cerrarSesion()} hitSlop={8} style={estilos.salir}
+            accessibilityRole="button" accessibilityLabel="Cerrar sesión"
+          >
+            <Ionicons name="log-out-outline" size={22} color={COLORES.textoSecundario} />
+          </Pressable>
+        ),
+      }}
+    />
+  )
+
   // Lo que va arriba en todos los casos: el estado de la cola y la sesión que
   // quedó abierta. Una sesión abierta no depende de tener rutina ni señal.
   const avisos = (
     <>
       <AvisoSincronizacion />
       {abierta && (
-        <View style={estilos.abierta}>
-          <Text style={estilos.abiertaTexto}>Tenés un entrenamiento sin terminar.</Text>
-          <View style={estilos.abiertaAcciones}>
-            <Pressable onPress={() => router.push({ pathname: '/entrenar', params: { retomar: '1' } })}>
-              <Text style={estilos.enlace}>Seguir</Text>
-            </Pressable>
-            <Pressable onPress={() => void terminarAbierta()}>
-              <Text style={estilos.enlace}>Terminar</Text>
-            </Pressable>
+        <Tarjeta style={estilos.abierta}>
+          <View style={estilos.filaAbierta}>
+            <Ionicons name="time-outline" size={20} color={COLORES.cian} />
+            <Texto peso="semi" style={{ flex: 1 }}>Tenés un entrenamiento sin terminar.</Texto>
           </View>
-        </View>
+          <View style={estilos.accionesAbierta}>
+            <Boton
+              titulo="Seguir" style={{ flex: 1 }}
+              onPress={() => router.push({ pathname: '/entrenar', params: { retomar: '1' } })}
+            />
+            <Boton titulo="Terminar" variante="secundario" style={{ flex: 1 }} onPress={() => void terminarAbierta()} />
+          </View>
+        </Tarjeta>
       )}
     </>
   )
 
   if (cargando) {
     return (
-      <View style={estilos.centrado}>
-        <ActivityIndicator />
-        <Button title="Cerrar sesión" onPress={() => void cerrarSesion()} />
-      </View>
+      <Fondo style={estilos.centrado}>
+        {encabezado}
+        <ActivityIndicator color={COLORES.cian} />
+      </Fondo>
     )
   }
 
-  if (error) {
+  if (error || !rutina) {
     return (
-      <View style={{ flex: 1 }}>
-        {avisos}
-        <View style={estilos.centrado}>
-          <Text style={estilos.error}>{error}</Text>
-          <Pressable style={estilos.botonSecundario} onPress={entrenarLibre}>
-            <Text>Entrenar libre</Text>
-          </Pressable>
-          <Button title="Cerrar sesión" onPress={() => void cerrarSesion()} />
-        </View>
-      </View>
-    )
-  }
-
-  if (!rutina) {
-    return (
-      <View style={{ flex: 1 }}>
-        {avisos}
-        <View style={estilos.centrado}>
-          <Text style={estilos.vacio}>Todavía no tenés una rutina.</Text>
-          <Link href="/(tabs)/rutinas" asChild>
-            <Pressable>
-              <Text style={estilos.enlace}>Mirá el catálogo de tu gimnasio.</Text>
-            </Pressable>
-          </Link>
-          <Pressable style={estilos.botonSecundario} onPress={entrenarLibre}>
-            <Text>Entrenar libre</Text>
-          </Pressable>
-          <Button title="Cerrar sesión" onPress={() => void cerrarSesion()} />
-        </View>
-      </View>
+      <Fondo>
+        {encabezado}
+        <ScrollView contentContainerStyle={estilos.contenido}>
+          {avisos}
+          <Tarjeta style={estilos.vacia}>
+            <Ionicons
+              name={error ? 'cloud-offline-outline' : 'barbell-outline'}
+              size={32} color={error ? COLORES.rechazo : COLORES.cian}
+            />
+            <Texto variante="grande" style={estilos.centradoTexto}>
+              {error ?? 'Todavía no tenés una rutina.'}
+            </Texto>
+            {!error && (
+              <Link href="/(tabs)/rutinas" asChild>
+                <Pressable hitSlop={8}>
+                  <Texto peso="semi" tono="cian">Mirá el catálogo de tu gimnasio</Texto>
+                </Pressable>
+              </Link>
+            )}
+          </Tarjeta>
+          <Boton titulo="Entrenar libre" variante="secundario" icono="add" onPress={entrenarLibre} />
+        </ScrollView>
+      </Fondo>
     )
   }
 
@@ -158,48 +168,47 @@ export default function Hoy() {
     : []
 
   return (
-    <View style={{ flex: 1 }}>
-      {avisos}
-      {guardada && (
-        <Text style={estilos.guardada}>Sin conexión: es tu rutina guardada en el teléfono.</Text>
-      )}
-
-      <View style={estilos.encabezado}>
-        <Text style={estilos.titulo}>{rutina.nombre}</Text>
-      </View>
-
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}
-        style={estilos.filtros} contentContainerStyle={{ gap: 8, paddingHorizontal: 12 }}>
-        {dias.map((d) => (
-          <Chip key={d.id} activo={d.id === diaId} texto={d.nombre}
-            onPress={() => elegirDia(d.id)} />
-        ))}
-      </ScrollView>
-
-      <FlatList
-        data={ejercicios}
-        keyExtractor={(e) => e.id}
-        renderItem={({ item }) => <FilaEjercicio ejercicio={item} />}
-        ListEmptyComponent={
-          <Text style={estilos.vacio}>Este día todavía no tiene ejercicios.</Text>
-        }
-      />
-
-      <View style={estilos.pie}>
-        {dia && ejercicios.length > 0 && (
-          <Pressable
-            style={estilos.botonPrincipal}
-            onPress={() => router.push({ pathname: '/entrenar', params: { diaId: dia.id } })}
-          >
-            <Text style={estilos.botonPrincipalTexto}>Empezar</Text>
-          </Pressable>
+    <Fondo>
+      {encabezado}
+      <ScrollView contentContainerStyle={estilos.contenido}>
+        {avisos}
+        {guardada && (
+          <Texto variante="chico" tono="secundario">Sin conexión: es tu rutina guardada en el teléfono.</Texto>
         )}
-        <Pressable style={estilos.botonSecundario} onPress={entrenarLibre}>
-          <Text>Entrenar libre</Text>
-        </Pressable>
-        <Button title="Cerrar sesión" onPress={() => void cerrarSesion()} />
-      </View>
-    </View>
+
+        <Tarjeta destacada>
+          <View style={estilos.etiquetaHoy}>
+            <Texto variante="mini" peso="semi">HOY TOCA</Texto>
+          </View>
+          <Texto variante="subtitulo" style={{ marginTop: ESPACIO.m }}>{dia?.nombre ?? rutina.nombre}</Texto>
+          <Texto variante="chico" style={{ opacity: 0.85 }}>
+            {rutina.nombre} · {ejercicios.length} {ejercicios.length === 1 ? 'ejercicio' : 'ejercicios'}
+          </Texto>
+          {dia && ejercicios.length > 0 && (
+            <Boton
+              titulo="Empezar" variante="claro" icono="play" style={{ marginTop: ESPACIO.l }}
+              onPress={() => router.push({ pathname: '/entrenar', params: { diaId: dia.id } })}
+            />
+          )}
+        </Tarjeta>
+
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={estilos.chips}>
+          {dias.map((d) => (
+            <Chip key={d.id} activo={d.id === diaId} texto={d.nombre} onPress={() => elegirDia(d.id)} />
+          ))}
+        </ScrollView>
+
+        {ejercicios.length === 0 ? (
+          <Texto tono="secundario" style={estilos.centradoTexto}>Este día todavía no tiene ejercicios.</Texto>
+        ) : (
+          <View style={{ gap: ESPACIO.s }}>
+            {ejercicios.map((e) => <FilaEjercicio key={e.id} ejercicio={e} />)}
+          </View>
+        )}
+
+        <Boton titulo="Entrenar libre" variante="secundario" icono="add" onPress={entrenarLibre} />
+      </ScrollView>
+    </Fondo>
   )
 }
 
@@ -207,71 +216,38 @@ export default function Hoy() {
 // la pantalla equivalente dentro de Rutinas.
 function FilaEjercicio({ ejercicio }: { ejercicio: EjercicioDelDia }) {
   return (
-    <View style={estilos.fila}>
+    <Tarjeta style={estilos.fila}>
       <View style={{ flex: 1 }}>
-        <Text style={estilos.nombre}>{ejercicio.ejercicios?.nombre}</Text>
-        <Text style={estilos.sub}>
+        <Texto peso="semi">{ejercicio.ejercicios?.nombre}</Texto>
+        <Texto variante="chico" tono="secundario" numerico>
           {ejercicio.series}×{ejercicio.repeticiones}
           {ejercicio.descanso_seg ? ` · ${ejercicio.descanso_seg}s de descanso` : ''}
-        </Text>
+        </Texto>
       </View>
       {ejercicio.ejercicios?.video_id && (
         <Link href={`/(tabs)/ejercicios/${ejercicio.ejercicios.id}`} asChild>
-          <Pressable hitSlop={8}>
-            <Text style={estilos.video}>▶</Text>
+          <Pressable hitSlop={8} accessibilityRole="button" accessibilityLabel="Ver el video">
+            <Ionicons name="play-circle" size={30} color={COLORES.cian} />
           </Pressable>
         </Link>
       )}
-    </View>
-  )
-}
-
-function Chip({ activo, texto, onPress }: {
-  activo: boolean; texto: string; onPress: () => void
-}) {
-  return (
-    <Pressable onPress={onPress} style={[estilos.chip, activo && estilos.chipActivo]}>
-      <Text style={activo ? estilos.chipTextoActivo : estilos.chipTexto}>{texto}</Text>
-    </Pressable>
+    </Tarjeta>
   )
 }
 
 const estilos = StyleSheet.create({
-  centrado: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 12 },
-  error: { color: '#b00' },
-  encabezado: { padding: 16, paddingBottom: 8 },
-  titulo: { fontSize: 22, fontWeight: '600' },
-  guardada: { paddingHorizontal: 16, paddingTop: 8, color: '#777', fontSize: 13 },
-  filtros: { flexGrow: 0, marginBottom: 8 },
-  chip: {
-    paddingHorizontal: 12, paddingVertical: 6,
-    borderRadius: 16, backgroundColor: '#eee',
+  centrado: { alignItems: 'center', justifyContent: 'center' },
+  centradoTexto: { textAlign: 'center' },
+  contenido: { padding: ESPACIO.l, gap: ESPACIO.l, paddingBottom: ESPACIO.xl * 2 },
+  salir: { minWidth: TOQUE_MINIMO, minHeight: TOQUE_MINIMO, alignItems: 'center', justifyContent: 'center', marginRight: ESPACIO.s },
+  abierta: { gap: ESPACIO.m },
+  filaAbierta: { flexDirection: 'row', alignItems: 'center', gap: ESPACIO.s },
+  accionesAbierta: { flexDirection: 'row', gap: ESPACIO.s },
+  vacia: { alignItems: 'center', gap: ESPACIO.m, paddingVertical: ESPACIO.xl },
+  etiquetaHoy: {
+    alignSelf: 'flex-start', paddingHorizontal: ESPACIO.s + 2, paddingVertical: ESPACIO.xs,
+    borderRadius: 999, backgroundColor: COLORES.sobreDegrade,
   },
-  chipActivo: { backgroundColor: '#111' },
-  chipTexto: { color: '#333' },
-  chipTextoActivo: { color: '#fff' },
-  fila: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingHorizontal: 16, paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#ddd',
-    backgroundColor: '#fff',
-  },
-  nombre: { fontSize: 16 },
-  sub: { color: '#777', fontSize: 13, marginTop: 2 },
-  video: { fontSize: 18 },
-  vacio: { textAlign: 'center', color: '#777', marginTop: 32, paddingHorizontal: 24 },
-  enlace: { textAlign: 'center', color: '#111', fontWeight: '600', textDecorationLine: 'underline' },
-  abierta: {
-    margin: 12, padding: 12, borderRadius: 10, gap: 8,
-    backgroundColor: 'rgba(27,127,59,0.10)',
-  },
-  abiertaTexto: { fontWeight: '600' },
-  abiertaAcciones: { flexDirection: 'row', gap: 24 },
-  pie: { padding: 12, gap: 8 },
-  botonPrincipal: { backgroundColor: '#111', borderRadius: 10, padding: 16, alignItems: 'center' },
-  botonPrincipalTexto: { color: '#fff', fontWeight: '600', fontSize: 16 },
-  botonSecundario: {
-    borderWidth: 1, borderColor: '#ddd', borderRadius: 10, padding: 14, alignItems: 'center',
-    alignSelf: 'stretch',
-  },
+  chips: { gap: ESPACIO.s },
+  fila: { flexDirection: 'row', alignItems: 'center', gap: ESPACIO.m, paddingVertical: ESPACIO.m },
 })
