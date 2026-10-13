@@ -1,3 +1,4 @@
+import { createClient } from '@supabase/supabase-js'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { admin, crearEscenario, type Escenario } from './ayudas'
 
@@ -317,6 +318,16 @@ describe('editar los datos de un socio', () => {
     expect(error?.code).toBe('42501')
   })
 
+  it('no edita a un socio que también tiene membresía en otro gimnasio: el perfil es global', async () => {
+    const { error: errorAlta } = await admin
+      .from('memberships').insert({ gym_id: e.gymB, user_id: e.socioA2Id, rol: 'entrenador' })
+    expect(errorAlta).toBeNull()
+    const { error } = await editar(e.comoAdminA, e.socioA2MembresiaId, 'Intruso')
+    expect(error?.code).toBe('42501')
+    const { data } = await admin.from('profiles').select('nombre').eq('id', e.socioA2Id).single()
+    expect(data?.nombre).not.toBe('Intruso')
+  })
+
   it('no deja un nombre vacío', async () => {
     const { error } = await editar(e.comoAdminA, e.socioAMembresiaId, '   ')
     expect(error?.code).toBe('22023')
@@ -433,6 +444,16 @@ describe('check-in con QR', () => {
     expect(data).toEqual({ valido: false })
   })
 
+  it('anon no puede llamar a las funciones de check-in', async () => {
+    const anonimo = createClient(process.env.API_URL ?? 'http://127.0.0.1:54321', process.env.ANON_KEY!, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    })
+    const porQr = await anonimo.rpc('checkin_por_qr', { p_codigo: 'cualquiera' })
+    expect(porQr.error?.code).toBe('42501')
+    const manual = await anonimo.rpc('checkin_manual', { p_membership_id: e.socioAMembresiaId })
+    expect(manual.error?.code).toBe('42501')
+  })
+
   it('la función interna no se puede llamar desde afuera', async () => {
     const { error } = await e.comoAdminA.rpc('registrar_checkin', {
       p_membership_id: e.socioAMembresiaId, p_metodo: 'manual',
@@ -505,6 +526,17 @@ describe('el bucket de fotos aísla por gimnasio', () => {
   it('la ruta tiene que ser la de una membresía real del gimnasio', async () => {
     const { error } = await subir(e.comoAdminA, `${e.gymA}/${crypto.randomUUID()}.jpg`)
     expect(error).not.toBeNull()
+  })
+
+  it('una ruta mal formada da false, sin tirar error', async () => {
+    for (const ruta of ['basura', `${e.gymA}/no-es-uuid.jpg`, `${e.gymA}/${e.socioAMembresiaId}.png`, '']) {
+      const ver = await e.comoAdminA.rpc('puedo_ver_foto', { p_ruta: ruta })
+      expect(ver.error).toBeNull()
+      expect(ver.data).toBe(false)
+      const subirla = await e.comoAdminA.rpc('puedo_subir_foto', { p_ruta: ruta })
+      expect(subirla.error).toBeNull()
+      expect(subirla.data).toBe(false)
+    }
   })
 
   it('el bucket solo acepta JPEG', async () => {
