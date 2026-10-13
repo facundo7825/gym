@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { puede } from '@gym/core'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { NavLateral } from './nav-lateral'
 
@@ -29,6 +30,18 @@ export default async function LayoutPanel({
         <div className="tarjeta max-w-md space-y-2 p-6">
           <h1 className="text-xl font-semibold">Tu cuenta no está asociada a ningún gimnasio</h1>
           <p className="text-texto-secundario">Pedile a un administrador que te dé de alta.</p>
+        </div>
+      </main>
+    )
+  }
+
+  // Un socio con sesión no tiene nada que hacer acá: lo suyo está en la app.
+  if (!puede(membresia.rol, 'escanear_checkin')) {
+    return (
+      <main className="flex flex-1 items-center justify-center p-8">
+        <div className="tarjeta max-w-md space-y-2 p-6">
+          <h1 className="text-xl font-semibold">El panel es para el personal del gimnasio</h1>
+          <p className="text-texto-secundario">Tu QR y tu cuota están en la app.</p>
         </div>
       </main>
     )

@@ -29,11 +29,13 @@ export default async function FichaSocio({
   if (!yo) return null
 
   const supabase = await crearClienteServidor()
-  // RLS ya devuelve vacío si la membresía es de otro gimnasio.
+  // RLS ya devuelve vacío si la membresía es de otro gimnasio. El filtro por
+  // rol deja afuera al personal: esta ficha es solo de socios.
   const { data: socio } = await supabase
     .from('memberships')
     .select('id, gym_id, estado, fecha_alta, foto, profiles ( nombre, apellido, telefono )')
     .eq('id', id)
+    .eq('rol', 'socio')
     .maybeSingle()
   if (!socio) notFound()
 

@@ -58,7 +58,9 @@ export function FotoSocio({ membershipId, gymId, nombre, url, puedeCambiar }: {
         .storage.from('fotos-socios')
         .upload(ruta, jpeg, { contentType: 'image/jpeg', upsert: true })
       if (errorSubida) throw errorSubida
-      const r = await guardarFoto(membershipId, ruta)
+      // La ruta que queda en la fila la arma el servidor; esta es la misma
+      // fórmula, solo para subir el archivo.
+      const r = await guardarFoto(membershipId)
       if (r.error) throw new Error(r.error)
     } catch {
       setError('No pudimos guardar la foto, probá de nuevo')

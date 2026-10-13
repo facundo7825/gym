@@ -93,6 +93,13 @@ const revalidarSocio = (membershipId: string) => {
   revalidatePath('/socios')
 }
 
+/** La ficha y sus acciones son de socios: el personal no cobra ni entra por acá. */
+async function esSocio(supabase: Awaited<ReturnType<typeof crearClienteServidor>>, membershipId: string) {
+  const { data } = await supabase
+    .from('memberships').select('id').eq('id', membershipId).eq('rol', 'socio').maybeSingle()
+  return !!data
+}
+
 export type EstadoPago = { error?: string; ok?: boolean; valores?: Record<string, string> }
 
 export async function registrarPago(_previo: EstadoPago, datos: FormData): Promise<EstadoPago> {
@@ -113,6 +120,7 @@ export async function registrarPago(_previo: EstadoPago, datos: FormData): Promi
   if (!yo) return { error: SESION_VENCIDA, valores }
 
   const supabase = await crearClienteServidor()
+  if (!(await esSocio(supabase, membershipId))) return { error: 'No pudimos registrar el pago', valores }
   const { error } = await supabase.from('cuotas').insert({
     gym_id: yo.gym_id,
     membership_id: membershipId,
@@ -138,10 +146,17 @@ export async function borrarPago(id: string, membershipId: string): Promise<Resu
   return {}
 }
 
-export async function guardarFoto(membershipId: string, ruta: string): Promise<Resultado> {
+export async function guardarFoto(membershipId: string): Promise<Resultado> {
   const supabase = await crearClienteServidor()
+  const { data: socio } = await supabase
+    .from('memberships').select('gym_id').eq('id', membershipId).eq('rol', 'socio').maybeSingle()
+  if (!socio) return { error: 'No pudimos guardar la foto' }
+
+  // La ruta la arma el servidor: el cliente no decide qué queda en la fila.
   const { data, error } = await supabase
-    .from('memberships').update({ foto: ruta }).eq('id', membershipId).select('id')
+    .from('memberships')
+    .update({ foto: `${socio.gym_id}/${membershipId}.jpg` })
+    .eq('id', membershipId).eq('rol', 'socio').select('id')
   if (error || !data?.length) return { error: 'No pudimos guardar la foto' }
   revalidarSocio(membershipId)
   return {}
@@ -167,7 +182,7 @@ export async function editarDatos(_previo: EstadoDatos, datos: FormData): Promis
 export async function cambiarEstado(membershipId: string, estado: 'activo' | 'inactivo'): Promise<Resultado> {
   const supabase = await crearClienteServidor()
   const { data, error } = await supabase
-    .from('memberships').update({ estado }).eq('id', membershipId).select('id')
+    .from('memberships').update({ estado }).eq('id', membershipId).eq('rol', 'socio').select('id')
   if (error || !data?.length) return { error: 'No pudimos cambiar el estado' }
   revalidarSocio(membershipId)
   return {}
@@ -184,6 +199,7 @@ export async function regenerarQr(membershipId: string): Promise<Resultado> {
     .from('memberships')
     .update({ codigo_qr: randomBytes(16).toString('hex') })
     .eq('id', membershipId)
+    .eq('rol', 'socio')
     .select('id')
   if (error || !data?.length) return { error: 'No pudimos regenerar el código' }
   return {}
@@ -251,6 +267,7 @@ export async function escanear(codigo: string): Promise<ResultadoEntrada> {
 
 export async function entradaManual(membershipId: string): Promise<ResultadoEntrada> {
   const supabase = await crearClienteServidor()
+  if (!(await esSocio(supabase, membershipId))) return { tipo: 'invalido' }
   return aResultado(await supabase.rpc('checkin_manual', { p_membership_id: membershipId }))
 }
 
