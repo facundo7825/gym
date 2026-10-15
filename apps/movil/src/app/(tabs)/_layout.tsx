@@ -30,6 +30,7 @@ export default function LayoutPestanas() {
       <Tabs.Screen name="rutinas" options={{ title: 'Rutinas', headerShown: false, tabBarIcon: icono('list', 'list-outline') }} />
       <Tabs.Screen name="ejercicios" options={{ title: 'Ejercicios', headerShown: false, tabBarIcon: icono('barbell', 'barbell-outline') }} />
       <Tabs.Screen name="progreso" options={{ title: 'Progreso', headerShown: false, tabBarIcon: icono('trending-up', 'trending-up-outline') }} />
+      <Tabs.Screen name="perfil" options={{ title: 'Perfil', tabBarIcon: icono('person', 'person-outline') }} />
     </Tabs>
   )
 }

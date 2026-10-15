@@ -34,6 +34,125 @@ export type Database = {
   }
   public: {
     Tables: {
+      checkins: {
+        Row: {
+          created_at: string
+          dia: string
+          gym_id: string
+          id: string
+          membership_id: string
+          metodo: Database["public"]["Enums"]["metodo_checkin"]
+          registrado_por: string | null
+        }
+        Insert: {
+          created_at?: string
+          dia: string
+          gym_id: string
+          id?: string
+          membership_id: string
+          metodo: Database["public"]["Enums"]["metodo_checkin"]
+          registrado_por?: string | null
+        }
+        Update: {
+          created_at?: string
+          dia?: string
+          gym_id?: string
+          id?: string
+          membership_id?: string
+          metodo?: Database["public"]["Enums"]["metodo_checkin"]
+          registrado_por?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checkins_gym_id_fkey"
+            columns: ["gym_id"]
+            isOneToOne: false
+            referencedRelation: "gyms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checkins_membresia_fk"
+            columns: ["membership_id", "gym_id"]
+            isOneToOne: false
+            referencedRelation: "memberships"
+            referencedColumns: ["id", "gym_id"]
+          },
+          {
+            foreignKeyName: "checkins_registrador_fk"
+            columns: ["registrado_por", "gym_id"]
+            isOneToOne: false
+            referencedRelation: "memberships"
+            referencedColumns: ["id", "gym_id"]
+          },
+        ]
+      }
+      cuotas: {
+        Row: {
+          created_at: string
+          fecha_pago: string
+          gym_id: string
+          id: string
+          membership_id: string
+          metodo: Database["public"]["Enums"]["metodo_pago"]
+          moneda: string
+          monto: number
+          notas: string | null
+          periodo_desde: string
+          periodo_hasta: string
+          registrado_por: string | null
+        }
+        Insert: {
+          created_at?: string
+          fecha_pago: string
+          gym_id: string
+          id?: string
+          membership_id: string
+          metodo: Database["public"]["Enums"]["metodo_pago"]
+          moneda?: string
+          monto: number
+          notas?: string | null
+          periodo_desde: string
+          periodo_hasta: string
+          registrado_por?: string | null
+        }
+        Update: {
+          created_at?: string
+          fecha_pago?: string
+          gym_id?: string
+          id?: string
+          membership_id?: string
+          metodo?: Database["public"]["Enums"]["metodo_pago"]
+          moneda?: string
+          monto?: number
+          notas?: string | null
+          periodo_desde?: string
+          periodo_hasta?: string
+          registrado_por?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cuotas_gym_id_fkey"
+            columns: ["gym_id"]
+            isOneToOne: false
+            referencedRelation: "gyms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cuotas_membresia_fk"
+            columns: ["membership_id", "gym_id"]
+            isOneToOne: false
+            referencedRelation: "memberships"
+            referencedColumns: ["id", "gym_id"]
+          },
+          {
+            foreignKeyName: "cuotas_registrador_fk"
+            columns: ["registrado_por", "gym_id"]
+            isOneToOne: false
+            referencedRelation: "memberships"
+            referencedColumns: ["id", "gym_id"]
+          },
+        ]
+      }
       ejercicios: {
         Row: {
           creado_por: string | null
@@ -185,6 +304,7 @@ export type Database = {
           created_at: string
           estado: Database["public"]["Enums"]["estado_membresia"]
           fecha_alta: string
+          foto: string | null
           gym_id: string
           id: string
           rol: Database["public"]["Enums"]["rol_membresia"]
@@ -195,6 +315,7 @@ export type Database = {
           created_at?: string
           estado?: Database["public"]["Enums"]["estado_membresia"]
           fecha_alta?: string
+          foto?: string | null
           gym_id: string
           id?: string
           rol?: Database["public"]["Enums"]["rol_membresia"]
@@ -205,6 +326,7 @@ export type Database = {
           created_at?: string
           estado?: Database["public"]["Enums"]["estado_membresia"]
           fecha_alta?: string
+          foto?: string | null
           gym_id?: string
           id?: string
           rol?: Database["public"]["Enums"]["rol_membresia"]
@@ -657,12 +779,24 @@ export type Database = {
       }
     }
     Functions: {
+      checkin_manual: { Args: { p_membership_id: string }; Returns: Json }
+      checkin_por_qr: { Args: { p_codigo: string }; Returns: Json }
       copiar_rutina: {
         Args: { p_nueva_id: string; p_origen_id: string }
         Returns: undefined
       }
       duplicar_plantilla: { Args: { p_rutina_id: string }; Returns: string }
+      editar_datos_socio: {
+        Args: {
+          p_apellido: string
+          p_membership_id: string
+          p_nombre: string
+          p_telefono: string
+        }
+        Returns: undefined
+      }
       es_mi_sesion: { Args: { p_sesion_id: string }; Returns: boolean }
+      mi_codigo_qr: { Args: { p_gym_id: string }; Returns: string }
       mi_membresia: { Args: { p_gym_id: string }; Returns: string }
       mi_rol: {
         Args: { p_gym_id: string }
@@ -671,7 +805,9 @@ export type Database = {
       mis_gyms: { Args: never; Returns: string[] }
       puedo_editar_dia: { Args: { p_dia_id: string }; Returns: boolean }
       puedo_editar_rutina: { Args: { p_rutina_id: string }; Returns: boolean }
+      puedo_subir_foto: { Args: { p_ruta: string }; Returns: boolean }
       puedo_ver_dia: { Args: { p_dia_id: string }; Returns: boolean }
+      puedo_ver_foto: { Args: { p_ruta: string }; Returns: boolean }
       puedo_ver_rutina: { Args: { p_rutina_id: string }; Returns: boolean }
       puedo_ver_rutina_fila: {
         Args: {
@@ -685,6 +821,13 @@ export type Database = {
       puedo_ver_sesion_fila: {
         Args: { p_gym_id: string; p_membership_id: string }
         Returns: boolean
+      }
+      registrar_checkin: {
+        Args: {
+          p_membership_id: string
+          p_metodo: Database["public"]["Enums"]["metodo_checkin"]
+        }
+        Returns: Json
       }
       reordenar_dias: {
         Args: { p_ids: string[]; p_rutina_id: string }
@@ -708,6 +851,7 @@ export type Database = {
           repeticiones: number
         }[]
       }
+      usuario_por_email: { Args: { p_email: string }; Returns: string }
     }
     Enums: {
       estado_membresia: "activo" | "inactivo"
@@ -726,6 +870,8 @@ export type Database = {
         | "abdominales"
         | "antebrazo"
         | "cuerpo_completo"
+      metodo_checkin: "qr" | "manual"
+      metodo_pago: "efectivo" | "transferencia" | "otro"
       nivel_rutina: "principiante" | "intermedio" | "avanzado"
       objetivo_rutina:
         | "fuerza"
@@ -891,6 +1037,8 @@ export const Constants = {
         "antebrazo",
         "cuerpo_completo",
       ],
+      metodo_checkin: ["qr", "manual"],
+      metodo_pago: ["efectivo", "transferencia", "otro"],
       nivel_rutina: ["principiante", "intermedio", "avanzado"],
       objetivo_rutina: [
         "fuerza",

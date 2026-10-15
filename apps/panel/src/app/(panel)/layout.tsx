@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { puede } from '@gym/core'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { NavLateral } from './nav-lateral'
 
@@ -34,9 +35,23 @@ export default async function LayoutPanel({
     )
   }
 
+  // Un socio con sesión no tiene nada que hacer acá: lo suyo está en la app.
+  if (!puede(membresia.rol, 'escanear_checkin')) {
+    return (
+      <main className="flex flex-1 items-center justify-center p-8">
+        <div className="tarjeta max-w-md space-y-2 p-6">
+          <h1 className="text-xl font-semibold">El panel es para el personal del gimnasio</h1>
+          <p className="text-texto-secundario">Tu QR y tu cuota están en la app.</p>
+        </div>
+      </main>
+    )
+  }
+
+  // En el celular la barra va arriba y la navegación se desliza de costado:
+  // Escanear se usa parado en el mostrador, con el teléfono en la mano.
   return (
-    <div className="flex min-h-screen">
-      <aside className="w-64 shrink-0 border-r border-superficie-borde bg-hundido p-5">
+    <div className="flex min-h-screen flex-col md:flex-row">
+      <aside className="shrink-0 border-b border-superficie-borde bg-hundido p-4 md:w-64 md:border-r md:border-b-0 md:p-5">
         <div className="flex items-center gap-3">
           <span className="fondo-degrade size-9 shrink-0 rounded-medio" aria-hidden />
           <div className="min-w-0">
@@ -48,7 +63,7 @@ export default async function LayoutPanel({
         </div>
         <NavLateral />
       </aside>
-      <main className="flex-1 p-8">{children}</main>
+      <main className="min-w-0 flex-1 p-4 md:p-8">{children}</main>
     </div>
   )
 }

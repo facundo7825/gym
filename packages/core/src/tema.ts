@@ -36,6 +36,12 @@ export const COLORES = {
   rechazo: '#F87171',
   /** Fondo de los avisos de error y del botón de peligro. */
   rechazoSuave: 'rgba(248,113,113,0.12)',
+  /** "Cuota vigente": el único verde del sistema. */
+  vigente: '#34D399',
+  vigenteSuave: 'rgba(52,211,153,0.12)',
+  /** El QR va negro sobre blanco puro aunque la app sea oscura: un lector lo toma mejor. */
+  qrFondo: '#FFFFFF',
+  qrTinta: '#000000',
   /** Puntos de récord en el gráfico. */
   record: '#FACC15',
   /** Lo que oscurece la pantalla detrás de un modal. */
@@ -76,6 +82,8 @@ export const VARIABLES_CSS: Record<string, string> = {
   '--color-pendiente-suave': COLORES.pendienteSuave,
   '--color-rechazo': COLORES.rechazo,
   '--color-rechazo-suave': COLORES.rechazoSuave,
+  '--color-vigente': COLORES.vigente,
+  '--color-vigente-suave': COLORES.vigenteSuave,
   '--color-record': COLORES.record,
   '--color-velo': COLORES.velo,
   '--radius-chico': `${RADIOS.chico}px`,

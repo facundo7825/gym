@@ -15,6 +15,7 @@
     "db:estado": "supabase status",
     "db:tipos": "supabase gen types typescript --local > packages/core/src/tipos-db.ts",
     "test:rls": "vitest run --config vitest.config.ts",
+    "test:funciones": "vitest run --config vitest.funciones.config.ts",
     "test:core": "npm run test --workspace @gym/core"
   },
   "devDependencies": {
